@@ -4,27 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registreren | Johka Live</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/css/login-popup.css">
 </head>
 <body>
-  <h2>Registreren</h2>
+  <div class="login-box">
+    <h2>Registreren</h2>
 
-  <form id="regForm">
-    <label for="username">Gebruikersnaam:</label><br>
-    <input type="text" id="username" name="username" placeholder="Kies een gebruikersnaam" required><br><br>
+    <form id="regForm">
+      <label for="username">Gebruikersnaam:</label>
+      <input type="text" id="username" name="username" placeholder="Kies een gebruikersnaam" required>
 
-    <label for="email">E-mailadres:</label><br>
-    <input type="email" id="email" name="email" placeholder="naam@voorbeeld.com" required><br><br>
+      <label for="email">E-mailadres:</label>
+      <input type="email" id="email" name="email" placeholder="naam@voorbeeld.com" required>
 
-    <label for="password">Wachtwoord:</label><br>
-    <input type="password" id="password" name="password" placeholder="Kies een sterk wachtwoord" required><br><br>
+      <label for="password">Wachtwoord:</label>
+      <input type="password" id="password" name="password" placeholder="Kies een sterk wachtwoord" required>
 
-    <button type="submit">Registreren</button>
-  </form>
+      <button type="submit">Registreren</button>
+      <p id="msg"></p>
+    </form>
 
-  <p id="msg"></p>
-  <p>Heb je al een account? <a href="login.html">Log hier in</a>.</p>
+    <div class="register-link">
+      Heb je al een account? <a href="/login.html">Log hier in</a>.
+    </div>
 
-  <script src="js/auth.js"></script>
+    <hr style="margin: 25px 0; border: 0; border-top: 1px solid #ddd;">
+    <section id="extra">
+      <h3 style="color:#ff7300; font-size:1rem;">Leeftijdsverificatie (binnenkort beschikbaar)</h3>
+      <p style="font-size:14px; color:#666;">
+        We vragen binnenkort een eenvoudige leeftijdscheck om Johka Live veilig te houden.
+      </p>
+    </section>
+  </div>
+
+  <script src="/js/auth.js"></script>
 </body>
 </html>
