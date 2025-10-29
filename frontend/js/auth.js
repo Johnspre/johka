@@ -1,4 +1,6 @@
-// Zet dit bovenaan
+// ===============================
+// CONFIG
+// ===============================
 const API = "https://api.johka.be";
 
 function el(id) {
@@ -80,10 +82,20 @@ async function login() {
       console.log("📦 Response body:", data);
 
       if (res.ok && data.access_token) {
+        // ✅ Login gelukt → opslaan
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("username", body.username);
-        el("msg").textContent = "✅ Ingelogd! → Dashboard...";
-        setTimeout(() => (location.href = "/dashboard.html"), 600);
+        el("msg").textContent = "✅ Ingelogd!";
+
+        // 🧩 Controleer of dit in een popup (iframe) draait
+        if (window.top !== window) {
+          console.log("📤 In popup: stuur bericht naar hoofdvenster");
+          window.top.postMessage({ type: "LOGIN_SUCCESS", username: body.username }, "*");
+        } else {
+          console.log("🌍 Normale loginpagina: redirect naar index");
+          setTimeout(() => (location.href = "/index.html"), 600);
+        }
+
       } else {
         el("msg").textContent = data.detail || "❌ Login fout.";
       }

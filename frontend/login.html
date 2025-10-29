@@ -4,24 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inloggen | Johka Live</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/css/login-popup.css">
 </head>
 <body>
-  <h2>Inloggen</h2>
+  <div class="login-box">
+    <h2>Inloggen</h2>
 
-  <form id="loginForm">
-    <label for="username">Gebruikersnaam:</label><br>
-    <input type="text" id="username" name="username" placeholder="Je gebruikersnaam" required><br><br>
+    <form id="loginForm">
+      <label for="username">Gebruikersnaam:</label>
+      <input type="text" id="username" name="username" placeholder="Je gebruikersnaam" required>
 
-    <label for="password">Wachtwoord:</label><br>
-    <input type="password" id="password" name="password" placeholder="Je wachtwoord" required><br><br>
+      <label for="password">Wachtwoord:</label>
+      <input type="password" id="password" name="password" placeholder="Je wachtwoord" required>
 
-    <button type="submit">Inloggen</button>
-  </form>
+      <button type="submit">Inloggen</button>
+      <p id="msg"></p>
 
-  <p id="msg"></p>
-  <p>Nog geen account? <a href="register.html">Maak er één aan</a>.</p>
+      <div class="register-link">
+        Nog geen account? <a href="/register.html">Maak er één aan</a>.
+      </div>
+    </form>
+  </div>
 
-  <script src="js/auth.js"></script>
+  <script src="/js/auth.js"></script>
+
+  <script>
+  // 🌙 Dark-mode van hoofdsite overnemen
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("dark") === "true") {
+    document.body.classList.add("dark");
+  }
+
+  // 🔔 Bericht sturen naar hoofdvenster na succesvolle login
+  window.addEventListener("storage", (e) => {
+    if (e.key === "token" && e.newValue) {
+      const username = localStorage.getItem("username");
+      if (window.top && window.top !== window) {
+        window.top.postMessage({ type: "LOGIN_SUCCESS", username }, "*");
+      }
+    }
+  });
+  </script>
 </body>
 </html>
