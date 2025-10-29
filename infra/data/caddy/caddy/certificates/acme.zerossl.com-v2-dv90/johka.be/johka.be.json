@@ -1,0 +1,19 @@
+{
+	"sans": [
+		"johka.be"
+	],
+	"issuer_data": {
+		"url": "https://acme.zerossl.com/v2/DV90/cert/A1UPjpBy4IJv_TBUC7h3LQ",
+		"ca": "https://acme.zerossl.com/v2/DV90",
+		"account": "https://acme.zerossl.com/v2/DV90/account/XopAUKuNxuVlmBwVL2zOgA",
+		"renewal_info": {
+			"suggestedWindow": {
+				"start": "2025-12-24T23:59:59Z",
+				"end": "2025-12-26T23:59:59Z"
+			},
+			"_uniqueIdentifier": "D2vmS845R672fpAeefAwkZLIX6M.ANkLqEMOzRyBQKOTVfBEmg4",
+			"_retryAfter": "2025-10-10T16:40:45.210817776Z",
+			"_selectedTime": "2025-12-25T16:34:25Z"
+		}
+	}
+}

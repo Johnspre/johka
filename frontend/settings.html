@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Johka – Instellingen</title>
+  <style>
+    :root {
+      --accent:#ff3c7d;
+      --bg-dark:#0a0a0a;
+      --bg-panel:#151515;
+      --muted:#888;
+      --gold:#f8d66d;
+    }
+    body{
+      background:var(--bg-dark);
+      color:#fff;
+      font-family:"Segoe UI",sans-serif;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+    }
+    nav{
+      background:var(--bg-panel);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:10px 20px;
+      border-bottom:1px solid #222;
+    }
+    #logo{font-size:20px;font-weight:bold;color:var(--accent);}
+    #navLinks a{
+      color:#ddd;
+      text-decoration:none;
+      margin-left:16px;
+    }
+    #navLinks a:hover{color:#fff;}
+    #logoutBtn{
+      background:#333;
+      border:none;
+      border-radius:6px;
+      color:#fff;
+      padding:6px 12px;
+      cursor:pointer;
+      font-weight:bold;
+      margin-left:10px;
+    }
+    #logoutBtn:hover{background:var(--accent);}
+
+    main{
+      flex:1;
+      max-width:800px;
+      margin:40px auto;
+      background:var(--bg-panel);
+      padding:20px;
+      border-radius:12px;
+      box-shadow:0 0 15px rgba(0,0,0,0.4);
+    }
+
+    h2{color:var(--accent);margin-top:0;}
+
+    form{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    label{font-size:14px;color:var(--muted);}
+    input,textarea{
+      background:#1b1b1b;
+      border:1px solid #333;
+      border-radius:8px;
+      padding:8px;
+      color:#fff;
+      font-size:14px;
+      resize:vertical;
+    }
+
+    button{
+      background:var(--accent);
+      border:none;
+      color:#fff;
+      padding:10px 14px;
+      border-radius:8px;
+      font-weight:bold;
+      cursor:pointer;
+      width:fit-content;
+    }
+    button:hover{opacity:0.9;}
+
+    #avatarPreview{
+      width:120px;
+      height:120px;
+      border-radius:50%;
+      object-fit:cover;
+      border:2px solid var(--accent);
+    }
+
+    .gallery{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .gallery img{
+      width:120px;
+      height:120px;
+      object-fit:cover;
+      border-radius:8px;
+      border:1px solid #333;
+    }
+
+    footer{
+      text-align:center;
+      padding:8px;
+      font-size:12px;
+      color:var(--muted);
+      background:#0a0a0a;
+      border-top:1px solid #111;
+    }
+  </style>
+
+  <script>
+    const API = "https://api.johka.be/api";
+
+    async function loadProfile(){
+      const token = localStorage.getItem("token");
+      if(!token) return location.href="/login.html";
+      const res = await fetch(API + "/me", {
+        headers:{Authorization:"Bearer "+token}
+      });
+      const u = await res.json();
+      document.getElementById("username").value = u.username;
+      document.getElementById("email").value = u.email;
+    }
+
+    async function saveProfile(e){
+      e.preventDefault();
+      const token = localStorage.getItem("token");
+      const body = {
+        username: document.getElementById("username").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        bio: document.getElementById("bio").value.trim()
+      };
+      const res = await fetch(API + "/me/update", {
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer "+token,
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      if(res.ok){
+        alert("✅ Profiel opgeslagen!");
+      }else{
+        alert("❌ Fout bij opslaan");
+      }
+    }
+
+    async function uploadAvatar(){
+      const token = localStorage.getItem("token");
+      const file = document.getElementById("avatar").files[0];
+      if(!file) return alert("Kies een afbeelding");
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(API + "/me/avatar", {
+        method:"POST",
+        headers:{Authorization:"Bearer "+token},
+        body:form
+      });
+      if(res.ok){
+        const d = await res.json();
+        document.getElementById("avatarPreview").src = d.url;
+      }else alert("Upload mislukt");
+    }
+
+    async function uploadGallery(){
+      const token = localStorage.getItem("token");
+      const files = document.getElementById("gallery").files;
+      if(!files.length) return alert("Geen foto's geselecteerd");
+      for(const f of files){
+        const form = new FormData();
+        form.append("file", f);
+        const r = await fetch(API + "/me/gallery", {
+          method:"POST",
+          headers:{Authorization:"Bearer "+token},
+          body: form
+        });
+        if(r.ok){
+          const d = await r.json();
+          const img = document.createElement("img");
+          img.src = d.url;
+          document.querySelector(".gallery").appendChild(img);
+        }
+      }
+    }
+
+    function logout(){
+      localStorage.clear();
+      location.href="/login.html";
+    }
+
+    window.addEventListener("DOMContentLoaded", ()=>{
+      loadProfile();
+      document.getElementById("saveBtn").addEventListener("click", saveProfile);
+      document.getElementById("uploadAvatarBtn").addEventListener("click", uploadAvatar);
+      document.getElementById("uploadGalleryBtn").addEventListener("click", uploadGallery);
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+    });
+  </script>
+</head>
+<body>
+  <nav>
+    <div id="logo">Johka 💫</div>
+    <div id="navLinks">
+      <a href="/index.html">🏠 Home</a>
+      <a href="/room.html">💬 Live</a>
+      <a href="/wallet.html">💼 Wallet</a>
+      <a href="/settings.html" style="color:#fff;">⚙️ Instellingen</a>
+      <button id="logoutBtn">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <main>
+    <h2>⚙️ Mijn Profiel</h2>
+
+    <form>
+      <label>Gebruikersnaam</label>
+      <input type="text" id="username" required>
+
+      <label>E-mail</label>
+      <input type="email" id="email" required>
+
+      <label>Wachtwoord (nieuw, optioneel)</label>
+      <input type="password" id="password">
+
+      <label>Bio / Promotie</label>
+      <textarea id="bio" rows="4" placeholder="Vertel iets over jezelf, wat je streams uniek maakt..."></textarea>
+
+      <button id="saveBtn" type="submit">💾 Opslaan</button>
+    </form>
+
+    <h2 style="margin-top:40px;">📸 Profielfoto</h2>
+    <img id="avatarPreview" src="/default-avatar.png" alt="avatar"><br>
+    <input type="file" id="avatar" accept="image/*">
+    <button id="uploadAvatarBtn">Uploaden</button>
+
+    <h2 style="margin-top:40px;">🖼️ Galerij / Promofoto's</h2>
+    <input type="file" id="gallery" accept="image/*" multiple>
+    <button id="uploadGalleryBtn">Uploaden</button>
+    <div class="gallery"></div>
+  </main>
+
+  <footer>
+    Johka Live – Creator Instellingen ⚡
+  </footer>
+</body>
+</html>

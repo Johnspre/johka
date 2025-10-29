@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Johka Live</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Welkom bij Johka Live</h2>
+
+  <p>
+  <a id="myRoomBtn" class="btn">Ga naar mijn room</a>
+</p>
+<script>
+  // simpele link naar room.html; je eigen room-slug haalt room.js bij het token
+  document.getElementById('myRoomBtn').href = "/room.html";
+</script>
+
+
+  <div id="userBox">
+    <p>👤 Ingelogd als: <strong id="usernameDisplay"></strong></p>
+    <p>🔑 Token (ingekort): <span id="tokenDisplay"></span></p>
+    <button id="logoutBtn">Afmelden</button>
+  </div>
+
+  <hr>
+
+  <div id="content">
+    <h3>Dashboard inhoud</h3>
+    <p>Hier komt straks je profiel, je live-room of admin-overzicht. 🚀</p>
+  </div>
+
+  <p id="msg"></p>
+
+  <script>
+    // Controleer of gebruiker ingelogd is
+    const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username");
+
+    if (!token) {
+      alert("Je bent niet ingelogd. Log eerst in.");
+      location.href = "/login.html";
+    } else {
+      document.getElementById("usernameDisplay").textContent = username;
+      document.getElementById("tokenDisplay").textContent = token.substring(0, 20) + "...";
+    }
+
+    // Logout-knop
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      alert("Je bent uitgelogd!");
+      location.href = "/login.html";
+    });
+  </script>
+</body>
+</html>

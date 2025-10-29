@@ -1,0 +1,85 @@
+# =========================================================
+# 🌍 JOHKA FRONTEND
+# =========================================================
+https://johka.be, https://www.johka.be {
+    root * /usr/share/caddy
+    file_server
+
+    header {
+        Access-Control-Allow-Origin "https://api.johka.be"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type"
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# =========================================================
+# ⚙️ JOHKA API BACKEND
+# =========================================================
+https://api.johka.be {
+    reverse_proxy infra-backend:8000
+
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "https://johka.be"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Authorization, Content-Type"
+        respond "" 204
+    }
+
+    header {
+        Access-Control-Allow-Origin "https://johka.be"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type"
+        defer
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# ==========================================================
+# LiveKit (strak, zonder extra headers op WS)
+# ==========================================================
+https://live.johka.be {
+    # --- WebSocket & alle andere LiveKit endpoints (default)
+    reverse_proxy infra-livekit:7880 {
+        transport http {
+            versions 1.1
+        }
+        # niets extra's meesturen; LiveKit regelt de rest
+    }
+
+    # --- CORS alleen voor /rtc/validate (HTTP, geen WS)
+    @validate path /rtc/validate
+    handle @validate {
+        @preflight method OPTIONS
+        handle @preflight {
+            header Access-Control-Allow-Origin "https://johka.be"
+            header Access-Control-Allow-Methods "GET, OPTIONS"
+            header Access-Control-Allow-Headers "Authorization, Content-Type"
+            respond "" 204
+        }
+
+        header Access-Control-Allow-Origin "https://johka.be"
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        header Access-Control-Allow-Headers "Authorization, Content-Type"
+
+        reverse_proxy infra-livekit:7880 {
+            transport http {
+                versions 1.1
+            }
+        }
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

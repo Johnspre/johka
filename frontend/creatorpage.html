@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Johka Live – Creator Page</title>
+  <style>
+    :root {
+      --accent: #ff3c7d;
+      --gold: #f8d66d;
+      --bg-dark: #0a0a0a;
+      --bg-panel: #151515;
+      --muted: #888;
+    }
+    body {
+      margin: 0;
+      background: var(--bg-dark);
+      color: #fff;
+      font-family: "Segoe UI", sans-serif;
+    }
+
+    header {
+      background: var(--bg-panel);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #222;
+    }
+
+    #logo {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    #backLink {
+      color: #ddd;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    #backLink:hover {
+      color: #fff;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 30px auto;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+
+    #banner {
+      width: 100%;
+      height: 240px;
+      background: #111 center/cover no-repeat;
+    }
+
+    #profile {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+      align-items: flex-start;
+    }
+
+    #avatar {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--accent);
+      background: #000;
+    }
+
+    #info {
+      flex: 1;
+    }
+
+    #username {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: var(--gold);
+    }
+
+    #bio {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #ddd;
+      white-space: pre-wrap;
+    }
+
+    .buttons {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn.gold {
+      background: var(--gold);
+      color: #000;
+    }
+
+    section {
+      padding: 20px;
+      border-top: 1px solid #222;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: var(--accent);
+      font-size: 18px;
+    }
+
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .gallery img {
+      width: calc(33% - 10px);
+      border-radius: 8px;
+      object-fit: cover;
+      height: 180px;
+      background: #111;
+    }
+
+    #tipBox {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #tipAmount {
+      width: 100px;
+      background: #1b1b1b;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      padding: 6px;
+      text-align: center;
+    }
+
+    footer {
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid #111;
+      background: #0a0a0a;
+    }
+  </style>
+
+  <script>
+    const API = "https://api.johka.be/api";
+
+    async function loadCreator() {
+      const params = new URLSearchParams(window.location.search);
+      const username = params.get("u");
+      if (!username) {
+        document.body.innerHTML = "<h2 style='text-align:center;color:white;margin-top:50px;'>❌ Geen gebruiker opgegeven</h2>";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/creator/${username}`);
+        if (!res.ok) throw new Error("Niet gevonden");
+        const c = await res.json();
+
+        document.getElementById("banner").style.backgroundImage = `url('${c.banner || "/default-banner.jpg"}')`;
+        document.getElementById("avatar").src = c.avatar || "/default-avatar.png";
+        document.getElementById("username").textContent = c.username;
+        document.getElementById("bio").textContent = c.bio || "Geen bio opgegeven.";
+
+        const gal = document.querySelector(".gallery");
+        gal.innerHTML = "";
+        if (c.gallery && c.gallery.length) {
+          for (const img of c.gallery) {
+            const i = document.createElement("img");
+            i.src = img;
+            gal.appendChild(i);
+          }
+        } else {
+          gal.innerHTML = "<p>Geen foto's beschikbaar.</p>";
+        }
+
+        document.getElementById("joinBtn").onclick = () => {
+          window.location.href = `/room.html?room=${c.room_slug}`;
+        };
+      } catch (e) {
+        document.body.innerHTML = `<h2 style='text-align:center;color:white;margin-top:50px;'>❌ Gebruiker niet gevonden</h2>`;
+      }
+    }
+
+    async function sendTip(){
+      const amount = parseInt(document.getElementById("tipAmount").value || "0");
+      if(amount <= 0) return alert("Ongeldig bedrag");
+      const token = localStorage.getItem("token");
+      if(!token) return alert("Je moet ingelogd zijn om te tippen.");
+      const params = new URLSearchParams(window.location.search);
+      const username = params.get("u");
+      const res = await fetch(API + "/tip/" + username + "?amount=" + amount, {
+        method:"POST",
+        headers:{Authorization:"Bearer "+token}
+      });
+      if(res.ok) alert("💸 Tip gestuurd!");
+      else alert("❌ Tip mislukt");
+    }
+
+    window.addEventListener("DOMContentLoaded", loadCreator);
+    window.addEventListener("DOMContentLoaded", ()=>{
+      document.getElementById("tipBtn").addEventListener("click", sendTip);
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div id="logo">Johka 💫</div>
+    <a id="backLink" href="/index.html">← Terug naar overzicht</a>
+  </header>
+
+  <main>
+    <div id="banner"></div>
+
+    <div id="profile">
+      <img id="avatar" src="/default-avatar.png" alt="avatar">
+      <div id="info">
+        <div id="username">Gebruiker</div>
+        <div id="bio">Laden...</div>
+        <div class="buttons">
+          <button id="joinBtn" class="btn">🎥 Bekijk Live Room</button>
+        </div>
+        <div id="tipBox">
+          <input type="number" id="tipAmount" placeholder="10">
+          <button id="tipBtn" class="btn gold">💸 Tip</button>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <h2>🖼️ Galerij</h2>
+      <div class="gallery">
+        <p>Laden...</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Johka Live – Creator Profiel ⚡
+  </footer>
+</body>
+</html>

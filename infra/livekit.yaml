@@ -1,0 +1,29 @@
+# ==========================================
+# 🌍 JOHKA – LiveKit server configuration
+# ==========================================
+
+keys:
+  johka_live_key: d7f6c8b14d3a4e52b9e8a6f9c1b7a3d5f4e2a8c6d9b3f1e4a7c2b5e6d8a9f3c1
+
+rtc:
+  use_external_ip: true
+  node_ip: 0.0.0.0
+  port_range_start: 50000
+  port_range_end: 50100
+
+turn:
+  enabled: true
+  domain: live.johka.be
+  relay_range_start: 30000
+  relay_range_end: 30100
+  udp_port: 3478
+  tls_port: 5349
+  external_tls: true
+
+logging:
+  level: info
+
+port: 7880
+
+bind_addresses:
+  - 0.0.0.0

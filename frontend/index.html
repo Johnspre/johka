@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>Johka Live – Ontdek Live Creators</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body {
+      background:#0b0b0b; color:#fff; font-family: "Inter", sans-serif;
+      margin:0; display:flex; flex-direction:column; min-height:100vh;
+    }
+    header {
+      background:#111; padding:12px 24px; display:flex;
+      align-items:center; justify-content:space-between;
+      border-bottom:1px solid #222;
+    }
+    #logo { font-size:1.4em; font-weight:bold; color:#ff4ecb; }
+    #navBtns button {
+      background:#ff4ecb; border:none; color:#fff; margin-left:8px;
+      padding:6px 14px; border-radius:4px; cursor:pointer; font-weight:bold;
+      transition:0.2s;
+    }
+    #navBtns button:hover { background:#ff6ee0; }
+
+    main { flex:1; padding:20px; }
+    h1 { text-align:center; margin-bottom:20px; }
+
+    #streams {
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+      gap:16px; padding:10px;
+    }
+
+    .card {
+      background:#181818; border-radius:8px; overflow:hidden;
+      cursor:pointer; transition:transform 0.3s;
+    }
+    .card:hover { transform:scale(1.04); }
+    .thumb {
+      width:100%; height:140px; object-fit:cover;
+      background:#000;
+    }
+    .info { padding:8px; }
+    .name { font-weight:bold; color:#ff4ecb; font-size:15px; }
+    .viewers { font-size:12px; color:#aaa; }
+
+    footer {
+      text-align:center; padding:12px; background:#111;
+      border-top:1px solid #222; color:#999; font-size:13px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div id="logo">🌕 Johka Live</div>
+    <div id="navBtns">
+      <button onclick="location.href='/login.html'">Inloggen</button>
+      <button onclick="location.href='/register.html'">Registreren</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>🎥 Live Creators</h1>
+    <section id="streams">Laden...</section>
+  </main>
+
+  <footer>
+    © 2025 Johka Live – Gemaakt met ❤️ door Bruno
+  </footer>
+
+  <script>
+const API = "https://api.johka.be/api";
+const container = document.getElementById("streams");
+
+async function loadStreams(){
+  try{
+    const res = await fetch(`${API}/public/streams`);
+    const data = await res.json();
+    if(!data.length){
+      container.innerHTML = `<p style="text-align:center;color:#777;">Momenteel geen live streams…</p>`;
+      return;
+    }
+
+    container.innerHTML = data.map(s => `
+      <div class="card" onclick="location.href='/room.html?room=${s.room}'">
+        <div class="thumb">
+          <img src="/uploads/previews/${s.snapshot || 'default.gif'}" alt="${s.username}" />
+        </div>
+        <div class="info">
+          <div class="name">${s.username}</div>
+          <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
+        </div>
+      </div>
+    `).join("");
+
+  }catch(e){
+    console.error("Fout bij laden streams:", e);
+    container.innerHTML = `<p style="text-align:center;color:red;">Fout bij laden streams.</p>`;
+  }
+}
+
+// laad direct bij openen
+loadStreams();
+// elke 5 seconden verversen
+setInterval(loadStreams, 5000);
+</script>
+
+</body>
+</html>

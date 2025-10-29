@@ -1,0 +1,301 @@
+/* ==============================================
+   🎥 JOHKA STUDIO V2 — Chaturbate-style layout
+   ============================================== */
+
+:root {
+  --accent: #ff3c7d;
+  --gold: #f8d66d;
+  --bg-dark: #0a0a0a;
+  --bg-panel: #1b1b1b;
+  --muted: #888;
+  --live: #e53935;
+  --ok: #4caf50;
+  --border: #2a2a2a;
+  --panel-border: #3a3a3a;
+  --panel-bg: #151515;
+  --button-bg: #333;
+  --button-hover: #ff3c7d;
+  --font: "Segoe UI", sans-serif;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-dark);
+  font-family: var(--font);
+  color: #eee;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ====== NAVIGATION BAR ====== */
+nav {
+  background: var(--panel-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+#logo {
+  color: var(--accent);
+  font-weight: bold;
+  font-size: 18px;
+}
+
+#navLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#navLinks a,
+#navLinks button {
+  background: var(--button-bg);
+  color: #ccc;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+#navLinks a:hover,
+#navLinks button:hover {
+  background: var(--button-hover);
+  color: #fff;
+}
+
+/* ====== STREAM STATUS BAR ====== */
+#streamStatus {
+  background: #111;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+#streamStatus .left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#liveDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.4; }
+}
+
+#status {
+  font-weight: bold;
+  color: var(--muted);
+}
+
+#viewCount {
+  color: var(--gold);
+}
+
+/* ====== MAIN LAYOUT ====== */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  background: var(--bg-dark);
+  overflow: hidden;
+}
+
+/* ====== VIDEO AREA ====== */
+#stage {
+  background: #000;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+}
+
+#stage video, #stage #preview {
+  width: 640px;
+  height: auto;
+  border-radius: 6px;
+  border: 2px solid #222;
+  object-fit: contain;
+  transition: all 0.3s ease;
+  background: #000;
+}
+
+/* ====== WHEN LIVE ====== */
+main.live-active #stage video {
+  width: 90%;
+  max-width: 960px;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 25px rgba(255, 60, 125, 0.3);
+}
+
+/* ====== LIVE CONTROL BAR ====== */
+#liveControlBar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+#liveControlBar button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+#liveControlBar button:hover {
+  background: #ff679c;
+}
+
+#obsHint {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  color: #aaa;
+  font-size: 12px;
+}
+
+/* ====== CHAT SIDEBAR ====== */
+#sidebar {
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#chatTabs {
+  display: flex;
+  background: #222;
+  border-bottom: 1px solid var(--border);
+}
+#chatTabs button {
+  flex: 1;
+  border: none;
+  background: #2a2a2a;
+  color: #ccc;
+  padding: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s;
+}
+#chatTabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+#chatTabs button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* CHAT BOX */
+#chat {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  background: #111;
+  font-size: 13px;
+}
+.msg { margin: 4px 0; }
+.me { color: var(--accent); }
+
+/* CHAT FORM */
+#chatForm {
+  display: flex;
+  padding: 8px;
+  background: #0f0f0f;
+  border-top: 1px solid #222;
+}
+#chatInput {
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1b1b1b;
+  color: #fff;
+  padding: 6px;
+}
+#chatForm button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+
+/* DONATION BAR */
+#donationBar {
+  display: flex;
+  padding: 8px;
+  background: #111;
+  border-top: 1px solid #222;
+}
+#donationBar input {
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1b1b1b;
+  color: #fff;
+  padding: 6px;
+}
+#donationBar button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+
+/* ====== FOOTER ====== */
+footer {
+  background: #0a0a0a;
+  border-top: 1px solid #111;
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: #777;
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  #sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  #stage video {
+    width: 95%;
+  }
+}

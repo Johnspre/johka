@@ -1,0 +1,47 @@
+body {
+  font-family: Arial, sans-serif;
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+h2 {
+  text-align: center;
+}
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  font-size: 16px;
+}
+button {
+  background-color: #0078ff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #005ecc;
+}
+#msg {
+  text-align: center;
+  margin-top: 10px;
+  font-weight: bold;
+}
+#navLinks a {
+  padding: 6px 10px;
+  color: #ffd;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+#navLinks a:hover {
+  background: #444;
+  color: #fff;
+}
+
+#navLinks a[href*="creatorpage.html"] {
+  color: #ff4ecb; /* roze tint voor creators */
+  font-weight: bold;
+}
