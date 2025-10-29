@@ -1,110 +1,171 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8">
-  <title>Johka Live – Ontdek Live Creators</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/style.css">
-  <style>
-    body {
-      background:#0b0b0b; color:#fff; font-family: "Inter", sans-serif;
-      margin:0; display:flex; flex-direction:column; min-height:100vh;
-    }
-    header {
-      background:#111; padding:12px 24px; display:flex;
-      align-items:center; justify-content:space-between;
-      border-bottom:1px solid #222;
-    }
-    #logo { font-size:1.4em; font-weight:bold; color:#ff4ecb; }
-    #navBtns button {
-      background:#ff4ecb; border:none; color:#fff; margin-left:8px;
-      padding:6px 14px; border-radius:4px; cursor:pointer; font-weight:bold;
-      transition:0.2s;
-    }
-    #navBtns button:hover { background:#ff6ee0; }
-
-    main { flex:1; padding:20px; }
-    h1 { text-align:center; margin-bottom:20px; }
-
-    #streams {
-      display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
-      gap:16px; padding:10px;
-    }
-
-    .card {
-      background:#181818; border-radius:8px; overflow:hidden;
-      cursor:pointer; transition:transform 0.3s;
-    }
-    .card:hover { transform:scale(1.04); }
-    .thumb {
-      width:100%; height:140px; object-fit:cover;
-      background:#000;
-    }
-    .info { padding:8px; }
-    .name { font-weight:bold; color:#ff4ecb; font-size:15px; }
-    .viewers { font-size:12px; color:#aaa; }
-
-    footer {
-      text-align:center; padding:12px; background:#111;
-      border-top:1px solid #222; color:#999; font-size:13px;
-    }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Johka Live – Ontdek Creators</title>
+  <link rel="stylesheet" href="/css/style-index.css" />
 </head>
 
 <body>
-  <header>
-    <div id="logo">🌕 Johka Live</div>
-    <div id="navBtns">
-      <button onclick="location.href='/login.html'">Inloggen</button>
-      <button onclick="location.href='/register.html'">Registreren</button>
+  <!-- 🔝 NAVBAR -->
+  <header class="topbar">
+    <div class="nav-left">
+      <div class="logo">Johka Live 🔥</div>
+      <nav>
+        <a href="#">Home</a>
+        <a href="#">Discover</a>
+        <a href="#">Tags</a>
+        <a href="#">Private Shows</a>
+        <a href="#">Following</a>
+        <a href="#">Merch</a>
+      </nav>
+    </div>
+
+    <div class="nav-right">
+      <div class="profile-menu" id="profileMenu">
+        <button id="profileBtn">👤 Gebruiker ▾</button>
+        <div class="dropdown" id="profileDropdown">
+          <div class="dropdown-content">
+            <div class="darkmode-toggle">
+              <label for="darkSwitch">🌙 Dark Mode</label>
+              <input type="checkbox" id="darkSwitch" />
+            </div>
+            <hr />
+            <p><strong>Status:</strong> Basic Member</p>
+            <p><strong>Tokens:</strong> <span id="tokenCount">13</span></p>
+            <hr />
+            <a href="/profile.html">My Profile</a>
+            <a href="/collection.html">My Collection</a>
+            <a href="/feedback.html">Send Feedback</a>
+            <a href="/logout.html">Log Out</a>
+          </div>
+        </div>
+      </div>
+      <button id="broadcastBtn">Broadcast Yourself</button>
+      <button id="signupBtn" onclick="location.href='/register.html'">
+        Sign Up ▶
+      </button>
     </div>
   </header>
 
+  <!-- 🟠 MAIN -->
   <main>
-    <h1>🎥 Live Creators</h1>
-    <section id="streams">Laden...</section>
+    <h1>Featured Creators</h1>
+    <section id="streams">Laden…</section>
   </main>
 
-  <footer>
-    © 2025 Johka Live – Gemaakt met ❤️ door Bruno
-  </footer>
+  <!-- ⚙️ FOOTER -->
+  <footer>© 2025 Johka Live — powered by LiveKit ⚡</footer>
 
   <script>
-const API = "https://api.johka.be/api";
-const container = document.getElementById("streams");
+    // ===== DROPDOWN =====
+    const profileBtn = document.getElementById("profileBtn");
+    const dropdown = document.getElementById("profileDropdown");
+    profileBtn.addEventListener("click", () => {
+      dropdown.classList.toggle("show");
+    });
+    window.onclick = (e) => {
+      if (!e.target.matches("#profileBtn")) dropdown.classList.remove("show");
+    };
 
-async function loadStreams(){
-  try{
-    const res = await fetch(`${API}/public/streams`);
-    const data = await res.json();
-    if(!data.length){
-      container.innerHTML = `<p style="text-align:center;color:#777;">Momenteel geen live streams…</p>`;
-      return;
+    // ===== DARK MODE =====
+    const darkSwitch = document.getElementById("darkSwitch");
+    const prefersDark = localStorage.getItem("darkMode") === "true";
+    if (prefersDark) document.body.classList.add("dark");
+    darkSwitch.checked = prefersDark;
+
+    darkSwitch.addEventListener("change", () => {
+      if (darkSwitch.checked) {
+        document.body.classList.add("dark");
+        localStorage.setItem("darkMode", "true");
+      } else {
+        document.body.classList.remove("dark");
+        localStorage.setItem("darkMode", "false");
+      }
+    });
+
+    // ===== STREAMS OPHALEN =====
+    const API = "https://api.johka.be/api";
+    const container = document.getElementById("streams");
+
+    async function loadStreams() {
+      try {
+        const res = await fetch(`${API}/public/streams`);
+        const data = await res.json();
+        if (!data.length) {
+          container.innerHTML =
+            "<p class='no-streams'>Momenteel geen live streams…</p>";
+          return;
+        }
+        container.innerHTML = data
+          .map(
+            (s) => `
+          <div class="card" onclick="location.href='/room.html?room=${s.room}'">
+            <img src="/uploads/previews/${s.snapshot || "default.gif"}" alt="${s.username}">
+            <div class="info">
+              <div class="name">${s.username}</div>
+              <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
+            </div>
+          </div>`
+          )
+          .join("");
+      } catch (err) {
+        container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
+      }
     }
 
-    container.innerHTML = data.map(s => `
-      <div class="card" onclick="location.href='/room.html?room=${s.room}'">
-        <div class="thumb">
-          <img src="/uploads/previews/${s.snapshot || 'default.gif'}" alt="${s.username}" />
-        </div>
-        <div class="info">
-          <div class="name">${s.username}</div>
-          <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
-        </div>
-      </div>
-    `).join("");
+    // Vernieuw streams elke 60 seconden (ipv 5)
+    loadStreams();
+    let refreshTimer = setInterval(loadStreams, 60000);
 
-  }catch(e){
-    console.error("Fout bij laden streams:", e);
-    container.innerHTML = `<p style="text-align:center;color:red;">Fout bij laden streams.</p>`;
-  }
-}
+    // Stop verversen als tabblad niet actief is
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        clearInterval(refreshTimer);
+      } else {
+        loadStreams();
+        refreshTimer = setInterval(loadStreams, 60000);
+      }
+    });
 
-// laad direct bij openen
-loadStreams();
-// elke 5 seconden verversen
-setInterval(loadStreams, 5000);
-</script>
+    // ===== USERNAAM TONEN & TOKEN CHECK =====
+    const username = localStorage.getItem("username");
+    const token = localStorage.getItem("token");
+
+    function tokenExpired(token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const now = Math.floor(Date.now() / 1000);
+        return payload.exp && payload.exp < now;
+      } catch (err) {
+        return true;
+      }
+    }
+
+    // Token verlopen? Wissen.
+    if (token && tokenExpired(token)) {
+      console.log("🔒 Token verlopen, uitloggen...");
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+    }
+
+    // Gebruiker tonen
+    if (username && token && !tokenExpired(token)) {
+      profileBtn.innerText = `👤 ${username} ▾`;
+    } else {
+      profileBtn.innerText = "👤 Anonymous ▾";
+      document.querySelector(".dropdown-content").innerHTML = `
+        <p><strong>Status:</strong> Anonymous</p>
+        <p><strong>Tokens:</strong> 0</p>
+        <hr>
+        <a href="/login.html">(Log In)</a>
+        <a href="/register.html">(Sign Up)</a>
+      `;
+    }
+  </script>
+
+  
 
 </body>
 </html>

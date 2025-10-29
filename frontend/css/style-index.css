@@ -1,0 +1,230 @@
+:root {
+  --blue: #166b89;
+  --orange: #ff7300;
+  --light-bg: #f4f4f4;
+  --text-dark: #222;
+  --text-light: #fff;
+  --border: #ddd;
+  --card-bg: #fff;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background: var(--light-bg);
+  color: var(--text-dark);
+}
+
+/* 🔝 HEADER */
+.topbar {
+  background: var(--blue);
+  color: var(--text-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  border-bottom: 3px solid var(--orange);
+}
+.logo { font-size: 1.3em; font-weight: 600; }
+nav a {
+  color: var(--text-light);
+  margin-right: 14px;
+  text-decoration: none;
+  font-weight: 500;
+}
+nav a:hover { text-decoration: underline; }
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#broadcastBtn {
+  background: var(--blue);
+  color: var(--text-light);
+  border: 2px solid var(--orange);
+  border-radius: 4px;
+  font-weight: bold;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+#signupBtn {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 👤 PROFILE MENU */
+.profile-menu { position: relative; }
+.profile-menu button {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+.dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 38px;
+  background: #fff;
+  color: #000;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  width: 220px;
+  z-index: 50;
+}
+.dropdown.show { display: block; }
+.dropdown-content {
+  padding: 10px;
+}
+.dropdown-content p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+.dropdown-content a {
+  display: block;
+  padding: 6px 0;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+.dropdown-content a:hover {
+  color: var(--orange);
+}
+
+/* 🟠 MAIN */
+main { padding: 20px 40px; }
+h1 {
+  text-align: center;
+  margin-top: 10px;
+  color: var(--blue);
+}
+#streams {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: transform 0.25s;
+}
+.card:hover { transform: scale(1.03); }
+.card img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+.card .info {
+  padding: 8px;
+}
+.card .name {
+  font-weight: 600;
+  color: var(--blue);
+}
+.card .viewers {
+  color: #777;
+  font-size: 13px;
+}
+.no-streams, .error {
+  text-align: center;
+  color: #777;
+  margin-top: 40px;
+}
+
+/* ⚙️ FOOTER */
+footer {
+  text-align: center;
+  padding: 10px;
+  background: var(--blue);
+  color: var(--text-light);
+  font-size: 14px;
+  border-top: 3px solid var(--orange);
+}
+
+/* 🌙 DARK MODE FIX – beter contrast en leesbaarheid */
+body.dark {
+  --blue: #242424;              /* iets lichter dan zwart */
+  --light-bg: #181818;
+  --text-dark: #f5f5f5;
+  --card-bg: #222;
+  --border: #444;
+}
+
+/* Navigatie en dropdown beter leesbaar */
+body.dark nav a {
+  color: #f5f5f5;
+}
+body.dark nav a:hover {
+  color: var(--orange);
+}
+
+body.dark .dropdown {
+  background: #1f1f1f;
+  color: #f5f5f5;
+  border: 1px solid #333;
+}
+body.dark .dropdown-content a {
+  color: #ff9a33;
+}
+body.dark .dropdown-content a:hover {
+  color: #fff;
+}
+
+/* Titels en tekst op cards iets helderder */
+body.dark .card .name {
+  color: #ff9a33;
+}
+body.dark .viewers {
+  color: #bbb;
+}
+
+/* Footer & topbar iets lichter voor meer contrast */
+body.dark .topbar,
+body.dark footer {
+  background: #202020;
+  color: #f5f5f5;
+}
+/* 💡 Fix: Titel 'Featured Creators' beter zichtbaar in dark mode */
+body.dark h1 {
+  color: #ffffff;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+/* ✨ VLOEIENDE OVERGANG TUSSEN THEMES */
+* {
+  transition: 
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+/* Extra accent-animatie voor knoppen en nav */
+#signupBtn,
+#broadcastBtn,
+.profile-menu button,
+nav a {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.dark .topbar,
+body.dark footer,
+body.dark .card,
+body.dark .dropdown,
+body.dark .profile-menu button,
+body.dark nav a {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

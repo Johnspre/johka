@@ -3,76 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Johka Live – Room</title>
+  <title>Johka Live — Room</title>
   <link rel="stylesheet" href="/css/style-room.css" />
-  <style>
-    /* Tabs bovenaan de chat */
-    #chatTabs {
-      display: flex;
-      background: #111;
-      border-bottom: 1px solid #222;
-    }
-    #chatTabs button {
-      flex: 1;
-      background: #222;
-      border: none;
-      color: #ccc;
-      padding: 8px 4px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: 0.2s;
-    }
-    #chatTabs button.active {
-      background: var(--accent, #ff3c7d);
-      color: #fff;
-    }
-    #chatTabs button:hover {
-      background: var(--accent, #ff3c7d);
-      color: #fff;
-    }
-    .tabContent {
-      display: none;
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      font-size: 14px;
-    }
-    .tabContent.active {
-      display: block;
-    }
-  </style>
 </head>
 
 <body>
-  <!-- 🔝 NAVIGATIE -->
-  <nav>
-    <div id="logo">Johka 💫</div>
+  <!-- 🔝 NAVBAR -->
+  <nav class="navbar">
+    <div id="logo">Johka Live 🔥</div>
     <div id="navLinks">
       <a href="/index.html">🏠 Home</a>
       <button id="goLive">🎥 Go Live</button>
       <button id="toggleCam">📸 Cam</button>
       <button id="toggleMic">🎙️ Mic</button>
-      <button id="privateBtn">🚪 Prive</button>
+      <button id="privateBtn">🔒 Privé</button>
       <button id="reconnectBtn">🔁 Reconnect</button>
       <button id="leave">🚪 Leave</button>
       <button id="viewersBtn">👥 Viewers</button>
     </div>
   </nav>
 
-  <!-- 🎛️ LIVE CONTROLS -->
-<div id="liveControlBar" style="display:none;">
-  <div id="liveStats">
-    <span id="liveRes">960x540</span> • 
-    <span id="liveFps">29 FPS</span> • 
-    <span id="liveAudio">🎙️ aan</span>
-  </div>
-  <div>
-    <button id="stopLiveBtn">⏹️ Stop uitzending</button>
-  </div>
-</div>
-<div id="obsHint">Gebruik OBS voor hoge kwaliteit streams 🎥</div>
-
-  <!-- 🔴 STATUS -->
+  <!-- 🔴 STATUSBALK -->
   <div id="streamStatus">
     <div class="left">
       <div id="liveDot"></div>
@@ -82,64 +33,81 @@
     <div class="right">💸 <span id="tipTotalBar">0</span> tokens</div>
   </div>
 
-  <!-- 🎬 MAIN -->
-  <main>
-    <section id="stage">
-      <p style="color:#666;">Camera niet actief...</p>
-    </section>
+  <!-- 🎬 HOOFDINHOUD -->
+<main>
+  <!-- 📹 CAMERA-GEDEELTE -->
+  <section id="stage">
+    <p class="placeholder">Camera niet actief...</p>
+  </section>
 
-    <aside id="sidebar">
+  <!-- 💬 CHAT-GEDEELTE -->
+  <aside id="sidebar">
+    <div id="chatTabs">
+      <button data-tab="chat" class="active">💬 Chat</button>
+      <button data-tab="users">👥 Users</button>
+      <button data-tab="private">🔒 Privé</button>
+      <button data-tab="settings">⚙️ Instellingen</button>
+    </div>
 
-      
-      <!-- ✅ TABS -->
-      <div id="chatTabs">
-        <button data-tab="chat" class="active">💬 Chat</button>
-        <button data-tab="users">👥 Users</button>
-        <button data-tab="private">🔒 Privé</button>
-        <button data-tab="settings">⚙️ Instellingen</button>
+    <!-- Chatpaneel -->
+    <div id="chatTab" class="tabContent active">
+      <div id="chat"></div>
+
+      <form id="chatForm" autocomplete="off">
+        <input id="chatInput" type="text" placeholder="Typ je bericht…" />
+        <button>Stuur</button>
+      </form>
+
+      <div id="donationBar">
+        <input id="donateInput" type="number" min="1" placeholder="10" />
+        <button id="donateBtn">💸 Tip</button>
       </div>
+    </div>
 
-     
-      <!-- ✅ TAB-INHOUD -->
-      <div id="chatTab" class="tabContent active">
-        <div id="chat"></div>
+    <!-- Gebruikers -->
+    <div id="usersTab" class="tabContent">
+      <p>👥 Gebruikerslijst verschijnt hier…</p>
+    </div>
 
-        <form id="chatForm" autocomplete="off">
-          <input id="chatInput" type="text" placeholder="Typ je bericht..." />
-          <button>Stuur</button>
-        </form>
+    <!-- Privé -->
+    <div id="privateTab" class="tabContent">
+      <p>🔒 Privéberichten of sessies komen hier…</p>
+    </div>
 
-        <div id="donationBar">
-          <input id="donateInput" type="number" min="1" placeholder="10" /> 
-          <button id="donateBtn">💸 Tip</button>
-        </div>
-      </div>
+    <!-- Instellingen -->
+    <div id="settingsTab" class="tabContent">
+      <p>⚙️ Stream- en accountinstellingen…</p>
+    </div>
+  </aside>
+</main>
 
-      <div id="usersTab" class="tabContent">
-        <p>👥 Gebruikerslijst verschijnt hier...</p>
-      </div>
+<!-- 🔽 Ondertabs (los van stage, maar visueel eronder) -->
+<div id="bottomTabs">
+  <button data-page="apps.html">Apps</button>
+  <button data-page="games.html">Games</button>
+  <button data-page="bio.html">Bio</button>
+  <button data-page="settings.html">Settings</button>
+  <button data-page="tokens.html">Token Stats</button>
+  <button data-page="share.html">Share</button>
+  <button data-page="memberships.html">Memberships</button>
+</div>
 
-      <div id="privateTab" class="tabContent">
-        <p>🔒 Privéberichten of sessies komen hier...</p>
-      </div>
+<!-- 📄 Container voor geladen inhoud -->
+<div id="bottomContent">
+  <p style="color:#777; text-align:center; margin-top:20px;">
+    Selecteer een tab hierboven om te starten 👆
+  </p>
+</div>
 
-      <div id="settingsTab" class="tabContent">
-        <p>⚙️ Stream- en accountinstellingen...</p>
-      </div>
-    </aside>
-  </main>
 
-  <footer>Johka Live – powered by LiveKit ⚡</footer>
+  <!-- 🔻 FOOTER -->
+  <footer>Johka Live — powered by LiveKit ⚡</footer>
 
+  <!-- 🔧 Tabs-logica -->
   <script>
-    window.API = "https://api.johka.be";
-    window.WS_URL = "wss://live.johka.be";
-
-    // Tab functionaliteit
     document.addEventListener("DOMContentLoaded", () => {
       const tabs = document.querySelectorAll("#chatTabs button");
       const contents = document.querySelectorAll(".tabContent");
-
       tabs.forEach(btn => {
         btn.addEventListener("click", () => {
           tabs.forEach(b => b.classList.remove("active"));
@@ -151,6 +119,7 @@
       });
     });
 
+    // live-status updater
     window.updateLivekitStatus = function(isConnected) {
       const dot = document.getElementById("liveDot");
       const status = document.getElementById("status");
@@ -166,6 +135,7 @@
     };
   </script>
 
+  <!-- 📦 LiveKit / Johka functionaliteit -->
   <script type="module" src="/js/room.js" defer></script>
 </body>
 </html>

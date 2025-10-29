@@ -441,3 +441,33 @@ function updateViewerList() {
 
 // ========== STARTUP ==========
 window.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
+
+// ======================================================
+// 🔽 JOHKA LIVE – Loader voor onderste tabs (Apps/Bio/…)
+// ======================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  const bottomTabs = document.querySelectorAll("#bottomTabs button");
+  const bottomContent = document.getElementById("bottomContent");
+
+  if (!bottomTabs.length || !bottomContent) return;
+
+  bottomTabs.forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const page = btn.dataset.page;
+      // visuele feedback
+      bottomTabs.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      try {
+        const res = await fetch(`/pages/${page}`);
+        if (!res.ok) throw new Error(res.statusText);
+        const html = await res.text();
+        bottomContent.innerHTML = html;
+      } catch (err) {
+        bottomContent.innerHTML = `<p style="color:#e53935;">❌ Fout bij laden: ${err.message}</p>`;
+      }
+    });
+  });
+});
+

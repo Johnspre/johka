@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Uitloggen… | Johka Live</title>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      flex-direction: column;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    .box {
+      text-align: center;
+      border: 1px solid #333;
+      padding: 30px 40px;
+      border-radius: 10px;
+      background: #1b1b1b;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+      animation: pulse 1.6s infinite alternate;
+    }
+
+    h2 {
+      color: #ff7300;
+      margin-bottom: 10px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      from { box-shadow: 0 0 8px rgba(255,115,0,0.2); }
+      to { box-shadow: 0 0 16px rgba(255,115,0,0.4); }
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; transform: scale(1.05); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="box" id="logoutBox">
+    <h2>👋 Je wordt uitgelogd…</h2>
+    <p>Even geduld, je wordt teruggestuurd naar de startpagina.</p>
+  </div>
+
+  <script>
+    // 🧹 Tokens wissen
+    localStorage.removeItem("username");
+    localStorage.removeItem("token");
+    sessionStorage.clear();
+
+    // ✨ Fade-out + redirect
+    setTimeout(() => {
+      document.body.style.animation = "fadeOut 0.8s forwards";
+      setTimeout(() => {
+        window.location.href = "/index.html";
+      }, 900);
+    }, 1500);
+  </script>
+</body>
+</html>
