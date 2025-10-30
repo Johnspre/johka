@@ -801,6 +801,39 @@ async def upload_snapshot_sequence(
     conn.close()
 
     return {"status": "ok", "file": gif_filename}
+# ============================================
+# LIVE PRESENCE (Redis heartbeat for room.js)
+# ============================================
+try:
+    from redis.asyncio import Redis
+    redis = Redis(host="redis", port=6379, decode_responses=True)
+except:
+    redis = None
+
+
+@app.post("/api/live/start")
+async def live_start(u: UserDB = Depends(get_current_user)):
+    """Room.js heartbeat: streamer bevestigt dat die live is."""
+    if redis:
+        # Bewaar username 60 seconden als "live"
+        await redis.set(f"live:{u.username}", "1", ex=60)
+    return {"status": "live"}
+
+
+@app.post("/api/live/stop")
+async def live_stop(u: UserDB = Depends(get_current_user)):
+    if redis:
+        await redis.delete(f"live:{u.username}")
+    return {"status": "stopped"}
+
+
+@app.get("/api/live/active")
+async def live_active():
+    """Frontend kan zien wie live is (UI future use)."""
+    if not redis:
+        return []
+    keys = await redis.keys("live:*")
+    return [k.split(":")[1] for k in keys]
 
 
 # ============================================

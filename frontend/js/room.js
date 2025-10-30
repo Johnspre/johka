@@ -1,4 +1,4 @@
-// ======= JOHKA LIVE v9.6 – Snapshots + Chat + Tips + Live UI =======
+// ======= JOHKA LIVE v9.6 – Snapshots + Chat + Tips + Live UI (patched) =======
 import {
   Room,
   RoomEvent,
@@ -21,6 +21,8 @@ let liveIndicator = null;
 let miniPreview = null;
 let snapshotTimer = null;
 let tipTotal = 0;
+let isLeaving = false; // ⬅️ nieuw: intentional leave flag
+const token = localStorage.getItem("token"); // auth token voor heartbeat/stop
 
 // ========== STATUSBALK ==========
 function updateStatusBar(text, color = "#ccc") {
@@ -78,14 +80,26 @@ function addMsg(txt, cls = "") {
   const div = document.createElement("div");
   div.className = `msg ${cls}`;
   div.textContent = txt;
-  el("chat").appendChild(div);
-  el("chat").scrollTop = el("chat").scrollHeight;
+  el("chat")?.appendChild(div);
+  const c = el("chat");
+  if (c) c.scrollTop = c.scrollHeight;
 }
 
 function sendDataJSON(obj, kind = DataPacket_Kind.RELIABLE) {
   if (!room || !room.localParticipant) return;
   const payload = new TextEncoder().encode(JSON.stringify(obj));
   return room.localParticipant.publishData(payload, kind);
+}
+
+function attachVideo(videoTrack, identity) {
+  const video = document.createElement("video");
+  video.autoplay = true;
+  video.playsInline = true;
+  video.style.width = "100%";
+  video.style.borderRadius = "8px";
+  const stream = new MediaStream([videoTrack.mediaStreamTrack]);
+  video.srcObject = stream;
+  el("remoteArea")?.appendChild(video);
 }
 
 // ========== INIT ==========
@@ -139,10 +153,8 @@ async function init() {
       addMsg(`🚪 ${p.identity} heeft verlaten`);
     })
     .on(RoomEvent.TrackSubscribed, (_t, pub, part) => {
-      if (pub.kind === Track.Kind.Video)
-        attachVideo(pub.videoTrack, part.identity);
-      else if (pub.kind === Track.Kind.Audio)
-        pub.audioTrack.attach(new Audio());
+      if (pub.kind === Track.Kind.Video) attachVideo(pub.videoTrack, part.identity);
+      else if (pub.kind === Track.Kind.Audio) pub.audioTrack.attach(new Audio());
     })
     .on(RoomEvent.DataReceived, (payload, participant) => {
       const from = participant?.identity || "onbekend";
@@ -153,18 +165,41 @@ async function init() {
         console.warn("Data parse fout:", e);
       }
     })
-    .on(RoomEvent.Disconnected, handleDisconnect);
+    .on(RoomEvent.Disconnected, handleDisconnect); // ⬅️ één centrale handler
 
   await connectLiveKit(lkToken, slug);
 
   // ---------- BUTTONS ----------
-  el("goLive").onclick = startAV;
-  el("toggleCam").onclick = toggleCamera;
-  el("toggleMic").onclick = toggleMic;
-  el("reconnectBtn").onclick = manualReconnect;
-  el("leave").onclick = leaveRoom;
-  el("donateBtn").onclick = sendTip;
-  document.querySelector("#chatForm")?.addEventListener("submit", sendChat);
+  el("goLive")?.addEventListener("click", startAV);
+  el("toggleCam")?.addEventListener("click", toggleCamera);
+  el("toggleMic")?.addEventListener("click", toggleMic);
+  el("reconnectBtn")?.addEventListener("click", manualReconnect);
+  el("leave")?.addEventListener("click", leaveRoom);
+  el("donateBtn")?.addEventListener("click", sendTip);
+
+  // Chat form (indien aanwezig) — we blokkeren default submit
+  const chatForm = document.querySelector("#chatForm");
+  if (chatForm) {
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      sendChat();
+    });
+  }
+
+  // Enter in input mag géén LiveKit shortcut triggeren
+  const chatInput = el("chatInput");
+  if (chatInput && !chatInput.dataset.bound) {
+    chatInput.dataset.bound = "1";
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();            // géén form submit
+        e.stopImmediatePropagation();  // blokkeer LiveKit/andere handlers
+        sendChat();
+      } else {
+        e.stopPropagation();           // vermijdt globale keybinds tijdens typen
+      }
+    });
+  }
 
   updateViewerList();
 }
@@ -241,8 +276,13 @@ function createMiniPreview(stream) {
 }
 
 // ========== SNAPSHOTS ==========
+function pickSnapshotVideo() {
+  // pak liveVideo als die bestaat, anders miniPreview
+  return document.getElementById("liveVideo") || document.getElementById("miniPreview");
+}
+
 async function sendSnapshot() {
-  const video = el("preview");
+  const video = pickSnapshotVideo();
   if (!video || video.readyState < 2) return;
   const canvas = document.createElement("canvas");
   canvas.width = 320;
@@ -263,15 +303,16 @@ async function sendSnapshot() {
     console.warn("Snapshot fout:", err);
   }
 }
+
 function startSnapshotLoop() {
   if (snapshotTimer) clearInterval(snapshotTimer);
   snapshotTimer = setInterval(sendSnapshot, 60000);
 }
 
 // ========== CHAT ==========
-async function sendChat(e) {
-  e.preventDefault();
+async function sendChat() {
   const input = el("chatInput");
+  if (!input) return;
   const txt = input.value.trim();
   if (!txt) return;
   input.value = "";
@@ -289,26 +330,58 @@ function handleDataMessage(msg, from) {
     addMsg(`${from}: ${msg.text}`);
   } else if (msg.type === "tip") {
     tipTotal += Number(msg.amount) || 0;
-    el("tipTotalBar").textContent = tipTotal;
+    const tb = el("tipTotalBar");
+    if (tb) tb.textContent = tipTotal;
     addMsg(`💸 ${from} tipte ${msg.amount} tokens!`, "tip");
   }
 }
 
 // ========== TIPS ==========
 async function sendTip(e) {
-  e.preventDefault();
+  if (e) e.preventDefault();
   const input = el("donateInput");
-  const amt = Number(input.value || "0");
+  const amt = Number(input?.value || "0");
   if (!amt || amt <= 0) return addMsg("⚠️ Ongeldig bedrag.");
-  input.value = "";
+  if (input) input.value = "";
   try {
     await sendDataJSON({ type: "tip", amount: amt });
     tipTotal += amt;
-    el("tipTotalBar").textContent = tipTotal;
+    const tb = el("tipTotalBar");
+    if (tb) tb.textContent = tipTotal;
     addMsg(`💸 Jij tipte ${amt} tokens`, "me");
   } catch (err) {
     addMsg(`❌ Tip fout: ${err.message}`);
   }
+}
+
+// ========== TOGGLE MIC/CAM (stubs die niets breken) ==========
+async function toggleMic() {
+  try {
+    const pub = room?.localParticipant?.getTrackPublications()?.find(p => p.kind === Track.Kind.Audio);
+    if (pub) {
+      if (pub.isMuted) await pub.unmute();
+      else await pub.mute();
+    }
+  } catch (e) {
+    console.warn("toggleMic error", e);
+  }
+}
+
+async function toggleCamera() {
+  try {
+    const pub = room?.localParticipant?.getTrackPublications()?.find(p => p.kind === Track.Kind.Video);
+    if (pub) {
+      if (pub.isMuted) await pub.unmute();
+      else await pub.mute();
+    }
+  } catch (e) {
+    console.warn("toggleCamera error", e);
+  }
+}
+
+async function manualReconnect() {
+  reconnectAttempts = 0;
+  await refreshLiveKitTokenAndReconnect();
 }
 
 // ===================== LIVE START =====================
@@ -320,24 +393,22 @@ async function startAV() {
     const tracks = await createLocalTracks({ audio: true, video: true });
     localTracks = tracks;
 
-    // ⏹️ Verberg de kleine preview zodra we live gaan
-    const miniPreview = document.getElementById("miniPreview");
-    if (miniPreview) miniPreview.remove();
+    // ⏹️ Verberg kleine preview
+    const _mini = document.getElementById("miniPreview");
+    if (_mini) _mini.remove();
 
-    // Publiceer tracks naar LiveKit
     for (const t of localTracks) {
       await room.localParticipant.publishTrack(t);
       addMsg(`✅ ${t.kind} gestart`);
     }
 
-    // 🎬 Toon groot live-beeld in #stage
     const stage = el("stage");
     if (stage) {
       stage.innerHTML = "";
       const liveVideo = document.createElement("video");
       liveVideo.id = "liveVideo";
       liveVideo.autoplay = true;
-      liveVideo.muted = true; // geen echo
+      liveVideo.muted = true;  // geen echo
       liveVideo.playsInline = true;
       Object.assign(liveVideo.style, {
         width: "100%",
@@ -358,8 +429,21 @@ async function startAV() {
 
     updateStatusBar("📡 Live actief", "#e53935");
     showLiveIndicator(true);
+
+    // ✅ snapshot loop starten
     await sendSnapshot();
     startSnapshotLoop();
+
+    // ✅ heartbeat starten
+    if (!window.johkaHeartbeat && token) {
+      window.johkaHeartbeat = setInterval(() => {
+        fetch("/api/live/start", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token }
+        }).catch(() => {});
+      }, 20000);
+    }
+
   } catch (err) {
     updateStatusBar("❌ Fout bij uitzending", "#e53935");
     addMsg("❌ Fout bij start camera: " + err.message);
@@ -369,30 +453,47 @@ async function startAV() {
 
 // ===================== LEAVE ROOM =====================
 async function leaveRoom() {
+  isLeaving = true; // ⬅️ intentional leave
   addMsg("👋 Je verlaat de room...");
-  if (room) await room.disconnect();
+  try {
+    // stop heartbeat eerst
+    if (window.johkaHeartbeat) {
+      clearInterval(window.johkaHeartbeat);
+      window.johkaHeartbeat = null;
+    }
 
-  // ⛔ Stop tracks
-  localTracks.forEach(t => t.stop());
-  localTracks = [];
+    // backend melden dat stream stopt
+    if (token) {
+      fetch("/api/live/stop", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token }
+      }).catch(() => {});
+    }
 
-  // 🧹 Maak stage leeg
-  const stage = el("stage");
-  if (stage) stage.innerHTML = "<p style='color:#666;'>Camera niet actief...</p>";
+    // disconnect + tracks stoppen
+    if (room) await room.disconnect();
+    localTracks.forEach(t => t.stop());
+    localTracks = [];
+  } finally {
+    const stage = el("stage");
+    if (stage) stage.innerHTML = "<p style='color:#666;'>Camera niet actief...</p>";
+    await startCameraPreview();
+    updateStatusBar("Verbinding verbroken", "#888");
+    showLiveIndicator(false);
 
-  // 🎞️ Start opnieuw mini-preview
-  await startCameraPreview();
-
-  updateStatusBar("Verbinding verbroken", "#888");
-  showLiveIndicator(false);
+    // snapshot loop stoppen
+    if (snapshotTimer) clearInterval(snapshotTimer);
+  }
 }
-
 
 // ========== CONNECT / RECONNECT ==========
 async function connectLiveKit(lkToken, slug) {
   try {
     updateStatusBar("Verbinden met LiveKit...", "#ff9800");
     await room.connect(WS_URL, lkToken);
+
+    // ❌ GEEN extra Disconnected handler met reload hier! (dat veroorzaakte reconnect bij typen)
+
     updateStatusBar("Verbonden ✅", "#4caf50");
     addMsg(`✅ Verbonden met LiveKit-server (${slug})`);
     reconnectAttempts = 0;
@@ -403,16 +504,18 @@ async function connectLiveKit(lkToken, slug) {
 }
 
 async function handleDisconnect() {
+  if (isLeaving) return; // we hebben zelf de verbinding beëindigd
   showLiveIndicator(false);
   updateStatusBar("Verbinding verbroken – herverbinden...", "#ff9800");
   if (snapshotTimer) clearInterval(snapshotTimer);
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectAttempts++;
-  const delay = 3000 * reconnectAttempts;
+  const delay = Math.min(15000, 3000 * reconnectAttempts);
   reconnectTimer = setTimeout(refreshLiveKitTokenAndReconnect, delay);
 }
 
 async function refreshLiveKitTokenAndReconnect() {
+  if (isLeaving) return;
   try {
     const res = await fetch(`${API}/livekit-token`, {
       method: "POST",
@@ -445,17 +548,14 @@ window.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
 // ======================================================
 // 🔽 JOHKA LIVE – Loader voor onderste tabs (Apps/Bio/…)
 // ======================================================
-
 document.addEventListener("DOMContentLoaded", () => {
   const bottomTabs = document.querySelectorAll("#bottomTabs button");
   const bottomContent = document.getElementById("bottomContent");
-
   if (!bottomTabs.length || !bottomContent) return;
 
   bottomTabs.forEach(btn => {
     btn.addEventListener("click", async () => {
       const page = btn.dataset.page;
-      // visuele feedback
       bottomTabs.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
@@ -470,4 +570,3 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
-

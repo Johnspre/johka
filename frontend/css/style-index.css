@@ -228,3 +228,12 @@ body.dark .profile-menu button,
 body.dark nav a {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+#chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#chatForm {
+  margin-top: auto;
+}
