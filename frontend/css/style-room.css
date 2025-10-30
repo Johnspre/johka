@@ -328,3 +328,28 @@ footer {
     height: auto;
   }
 }
+
+/* Chat container */
+#chat {
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+  max-height: 40vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 8px;
+  background: #fff;
+  border-radius: 6px;
+}
+
+/* Chat input area stays at bottom */
+#chatForm {
+  margin-top: 8px;
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+
+#chatInput {
+  flex: 1;
+}
