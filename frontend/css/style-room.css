@@ -99,14 +99,15 @@ html, body {
 /* ===== MAIN LAYOUT ===== */
 main {
   display: grid;
-  grid-template-columns: 35% 60%;
-  gap: 1%;
+  grid-template-columns: 34% 64%;
+  gap: 10px;
   background: var(--bg);
   padding: 10px;
   box-sizing: border-box;
   height: 82vh;
   align-items: start;
 }
+
 
 /* ===== CAMERA AREA ===== */
 #stage {
@@ -352,4 +353,126 @@ footer {
 
 #chatInput {
   flex: 1;
+}
+
+
+/* ✅ Fix horizontale scroll */
+html, body {
+  overflow-x: hidden !important;
+}
+
+/* ✅ voorkom dat elementen buiten viewport duwen */
+main, #stage, #sidebar {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ✅ bottom tabs wrapper fix */
+#bottomTabs {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+/* 🔧 Fix ruimte tussen video en chat — uitlijnen rechterkolom */
+main {
+  gap: 25px !important;
+  padding: 25px !important;
+}
+
+/* Chat sidebar exact tegen rand */
+#sidebar {
+  margin-left: 0 !important;
+}
+/* Fix: chatkolom moet tot de rechterkant */
+main {
+  grid-template-columns: 40% 60% !important; /* cam 40%, chat 60% */
+  gap: 0 !important;
+  width: 100vw !important; /* benut volledige breedte */
+  max-width: 100vw !important;
+  padding: 10px !important;
+  box-sizing: border-box;
+}
+
+/* Chat sidebar als full stretch */
+#sidebar {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-right: 0 !important;
+}
+
+/* Chat panel binnenin juiste breedte */
+#chatTab,
+#chat {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+/* Chat moet niet intern scrollen */
+#chat {
+  overflow-y: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Container laat chat meegroeien */
+#chatTab {
+  display: flex;
+  flex-direction: column;
+  height: auto !important;
+}
+
+/* Chat input onderaan blijft netjes */
+#chatForm {
+  margin-top: 10px;
+}
+/* --- Fix horizontal scroll chat panel --- */
+#chatTab,
+#sidebar,
+#chat,
+#chatForm,
+#donationBar {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Zorg dat input nooit te breed wordt */
+#chatForm input,
+#donationBar input {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Buttons mogen niet duwen */
+#chatForm button,
+#donationBar button {
+  flex-shrink: 0 !important;
+}
+/* --- Force 12px space between camera (left) and chat (right) --- */
+main {
+  display: grid !important;
+  /* keep ~35/65 split but subtract half the gap from each column */
+  grid-template-columns: calc(35% - 6px) calc(65% - 6px) !important;
+  column-gap: 12px !important;   /* the actual space between the two panels */
+}
+
+/* Safety: make sure children don’t fight with fixed widths */
+#stage, #sidebar {
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* If some older rule collapses the gap by margins, neutralize it */
+#stage { margin-right: 0 !important; }
+#sidebar { margin-left: 0 !important; }
+/* ✅ Fix 35 / 65 layout + exact 12px gap */
+main {
+  display: grid !important;
+  grid-template-columns: 40% calc(60% - 12px) !important; 
+  column-gap: 12px !important;
+}
+
+/* Safety: reset widths */
+#stage, #sidebar {
+  width: 100% !important;
+  max-width: 100% !important;
 }
