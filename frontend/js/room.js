@@ -176,6 +176,13 @@ async function init() {
   el("reconnectBtn")?.addEventListener("click", manualReconnect);
   el("leave")?.addEventListener("click", leaveRoom);
   el("donateBtn")?.addEventListener("click", sendTip);
+  // ✅ Start broadcasting button
+  el("startBroadcast")?.addEventListener("click", async () => {
+  console.log("🚀 Start Broadcasting clicked");
+  await startAV();      // zet audio/video aan
+  await publishTracks(); // camera + mic naar server sturen
+});
+
 
   // Chat form (indien aanwezig) — we blokkeren default submit
   const chatForm = document.querySelector("#chatForm");
