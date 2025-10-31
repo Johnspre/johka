@@ -37,7 +37,37 @@
 <main>
   <!-- 📹 CAMERA-GEDEELTE -->
   <section id="stage">
-    <p class="placeholder">Camera niet actief...</p>
+
+<div id="broadcastSetup">
+  <div class="setup-left">
+
+    <p><strong>Room Subject:</strong> My room <button class="edit-btn">Edit</button></p>
+    <p>You must submit age verification to receive tokens.</p>
+
+    <label>Camera</label>
+    <select id="cameraSelect"></select>
+
+    <label>Resolution</label>
+    <select id="resolutionSelect">
+      <option>960 x 540</option>
+      <option>1280 x 720</option>
+      <option>1920 x 1080</option>
+    </select>
+
+    <label>Microphone</label>
+    <select id="micSelect"></select>
+
+    <label class="mute-row">
+  <input id="muteCheck" type="checkbox">
+  <span>Mute</span>
+</label>
+
+    <button id="goLive" class="start-btn">Start Broadcasting</button>
+
+  </div>
+
+  
+</div>
   </section>
 
   <!-- 💬 CHAT-GEDEELTE -->

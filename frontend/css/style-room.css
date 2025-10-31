@@ -476,3 +476,334 @@ main {
   width: 100% !important;
   max-width: 100% !important;
 }
+
+#broadcastSetup {
+  display: grid;
+  grid-template-columns: 420px auto; /* ✅ smalle nette setup links */
+  gap: 20px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 18px;
+  width: 100%;
+  box-shadow: 0 0 6px rgba(0,0,0,0.08);
+}
+
+#broadcastSetup .setup-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* inputs smaller + same width */
+#broadcastSetup select,
+#broadcastSetup input[type="text"],
+#broadcastSetup input[type="checkbox"],
+#broadcastSetup button {
+  width: 100%;
+  max-width: 380px; /* ✅ smaller */
+}
+
+/* button beautify */
+#broadcastSetup button {
+  background: #f67c00;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+#broadcastSetup button:hover {
+  background: #ff8f1a;
+}
+
+/* camera preview box right */
+#broadcastSetup .setup-right {
+  width: 380px;
+  height: 250px;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#broadcastSetup {
+  display: flex;
+  gap: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 8px;
+  width: 100%;
+  height: 260px; /* ✅ vaste hoogte, geen scroll */
+  box-sizing: border-box;
+}
+
+.setup-left {
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#broadcastSetup select,
+#broadcastSetup button {
+  width: 100%;
+  padding: 8px;
+}
+
+.mute-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Start button */
+.start-btn {
+  background: #f67c00;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.start-btn:hover { background: #ff8f1a; }
+
+/* Right preview */
+.setup-right {
+  width: 380px;
+  height: 230px;
+  background: #000;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+#localVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  color: #999;
+  position: absolute;
+}
+
+.mute-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+#broadcastSetup hr {
+  display: none !important;
+}
+
+/* 🔥 Verwijder storende lijn onder broadcast box */
+#stage,
+#broadcastSetup,
+main section#stage {
+  border: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+}
+.mute-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+#muteCheck {
+  margin: 0;
+}
+/* ✅ Remove ghost grid seam under camera panel */
+main {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: var(--bg);
+}
+
+/* ✅ Remove bottom border / shadow from left block */
+#stage {
+  border: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* ✅ Remove any accidental HR / separator */
+main hr,
+#stage hr,
+#broadcastSetup hr {
+  display: none !important;
+  height: 0 !important;
+}
+
+/* ✅ Kill anti-alias grid line glitch */
+main {
+  gap: 12px !important;
+  border-collapse: collapse !important;
+}
+
+#stage, #sidebar {
+  background-clip: padding-box !important;
+}
+/* ✅ Laptop fix: compact broadcast setup */
+@media (max-height: 900px), (max-width: 1440px) {
+  #broadcastSetup {
+    height: auto !important;
+    padding: 10px !important;
+    gap: 12px !important;
+  }
+
+  .setup-left {
+    gap: 6px !important;
+  }
+
+  #broadcastSetup select,
+  #broadcastSetup button {
+    max-width: 300px !important;
+    padding: 6px !important;
+    font-size: 14px;
+  }
+
+  .setup-right {
+    width: 300px !important;
+    height: 180px !important;
+  }
+}
+/* 📍 Move orange bar + tabs lower */
+#bottomTabs {
+  margin-top: 25px !important;   /* duwt tabs naar beneden */
+}
+
+/* 📏 Bottom section smaller */
+#bottomContent {
+  min-height: 18vh !important;
+  max-height: 18vh !important;
+}
+
+/* 📹 Top broadcast/chat bigger */
+main {
+  height: 86vh !important; /* was 82vh */
+}
+/* 📍 Move orange bar + tabs lower */
+#bottomTabs {
+  margin-top: 45px !important;   /* duwt tabs naar beneden */
+}
+
+/* 📏 Bottom section smaller */
+#bottomContent {
+  min-height: 18vh !important;
+  max-height: 18vh !important;
+}
+
+/* 📹 Top broadcast/chat bigger */
+main {
+  height: 103vh !important; /* was 82vh */
+}
+/* 📍 Duur tabs + oranje lijn verder naar beneden */
+#bottomTabs {
+  margin-top: 10px !important;   /* was 25px — nu extra */
+}
+
+/* 📏 Bottom content nog kleiner zodat bovenste meer ruimte krijgt */
+#bottomContent {
+  min-height: 14vh !important;
+  max-height: 14vh !important;
+}
+
+/* 🎥 Geef top gedeelte extra ruimte */
+main {
+  height: 90vh !important; /* was 86vh — nu meer ruimte boven */
+}
+/* 📦 Maak bovenste panelen groter */
+main {
+  height: 88vh !important;  /* meer hoogte */
+  grid-template-columns: 42% 58% !important; /* camera breder, chat iets smaller */
+  align-items: stretch !important;
+}
+
+/* 🎥 Camera/Setup box groter */
+#stage {
+  min-height: 500px !important;
+  height: 100% !important;
+}
+
+/* 🗨 Chat box groter */
+#sidebar {
+  min-height: 500px !important;
+  height: 100% !important;
+}
+
+/* 🧡 schuif oranje lijn nog verder omlaag zodat boven stuk ruimer is */
+#bottomTabs {
+  margin-top: 10px !important;
+}
+#bottomContent {
+  min-height: 12vh !important;
+  max-height: 12vh !important;
+}
+/* Bovenste stream layout moet ruimte krijgen */
+main {
+  height: calc(100vh - 140px) !important; /* navbar + status bar + padding */
+  display: grid !important;
+  grid-template-columns: 40% 60% !important;
+  grid-template-rows: 1fr !important; /* 1 flexible row */
+  overflow: hidden !important;
+  padding-bottom: 0 !important;
+}
+
+/* Camera + chat container moet volledig zichtbaar blijven */
+#stage,
+#sidebar {
+  height: 100% !important;
+  min-height: 500px !important;
+  overflow: hidden !important;
+}
+
+/* Onderste tabs kleiner houden */
+#bottomTabs {
+  margin-top: 12px !important;
+}
+
+#bottomContent {
+  height: 18vh !important;
+  max-height: 18vh !important;
+}
+/* ❌ Verwijder geforceerde vaste hoogtes / overflow */
+html, body {
+  height: auto !important;
+  overflow-y: auto !important;
+}
+
+main {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Stage & Sidebar mogen groeien, niet dwingen */
+#stage, #sidebar {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Bottom content mag ook scroll mee */
+#bottomContent {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Zorg dat er ruimte onderaan is */
+body {
+  padding-bottom: 50px;
+}

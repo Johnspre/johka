@@ -233,7 +233,7 @@ async function startCameraPreview() {
     const stage = el("stage");
     if (stage) {
       // Wis alleen de placeholdertekst, niet alles
-      stage.innerHTML = "";
+      // stage.innerHTML = "";
       stage.style.position = "relative";
       stage.appendChild(preview);
     }
