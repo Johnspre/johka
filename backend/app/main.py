@@ -572,24 +572,28 @@ async def room_view_end(request: Request):
 
     conn = _psql()
     cur = conn.cursor()
+
+    cur.execute(
+        "SELECT id FROM live_sessions WHERE room_slug=%s AND ended_at IS NULL",
+        (room,),
+    )
     
     sess = cur.fetchone()
-    if sess:
-        session_id = sess[0]
+    if not sess:
+        conn.close()
+        return {"ok": True}
+
+    session_id = sess[0]
+    cur.execute(
+        "UPDATE live_viewers SET left_at=NOW() WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
+        (session_id, ip),
+    )
+    if cur.rowcount:
         cur.execute(
-            "UPDATE live_sessions SET viewers = GREATEST(viewers - 1, 0) WHERE id=%s",
+            "UPDATE live_sessions SET viewers = GREATEST(COALESCE(viewers, 0) - 1, 0) WHERE id=%s",
             (session_id,),
         )
-        cur.execute(
-            "UPDATE live_viewers SET left_at=NOW() WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
-            (session_id, ip),
-        )
-        if cur.rowcount:
-            cur.execute(
-                "UPDATE live_sessions SET viewers = GREATEST(COALESCE(viewers, 0) - 1, 0) WHERE id=%s",
-                (session_id,),
-            )
-            conn.commit()
+        conn.commit()
     conn.close()
     return {"ok": True}
 
@@ -998,13 +1002,13 @@ except Exception as exc:  # pragma: no cover - Redis optional in some envs
 async def live_start(u: UserDB = Depends(get_current_user)):
     """Room.js heartbeat: streamer bevestigt dat die live is."""
     if redis:
-       try:
+        try:
             # Bewaar username 60 seconden als "live"
             await redis.set(f"live:{u.username}", "1", ex=60)
-            except RedisError as exc:
-            print(f"⚠️  Redis heartbeat failed: {exc}")
-            return {"status": "live"}
+        except Exception as exc:
+            print(f"⚠️ Redis heartbeat failed: {exc}")
 
+    return {"status": "live"}
 
 @app.post("/api/live/stop")
 async def live_stop(u: UserDB = Depends(get_current_user)):
