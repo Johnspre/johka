@@ -90,13 +90,14 @@
           return;
         }
         container.innerHTML = data.map(s => `
-          <div class="card" onclick="location.href='/room.html?room=${s.room}'">
-            <img src="/uploads/previews/${s.snapshot || "default.gif"}" alt="${s.username}">
-            <div class="info">
-              <div class="name">${s.username}</div>
-              <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
-            </div>
-          </div>`).join("");
+        <div class="card" onclick="location.href='/u/${s.room_slug}'">
+        <img src="/uploads/previews/${s.snapshot || "default.gif"}" alt="${s.username}">
+        <div class="info">
+        <div class="name">${s.username}</div>
+        <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
+        </div>
+        </div>`).join("");
+
       } catch (err) {
         container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
       }
