@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Johka Live – Bekijk stream</title>
+  <style>
+    :root {
+      --bg: #060606;
+      --panel: #121212;
+      --accent: #ff3c7d;
+      --muted: #888;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      background: #0c0c0c;
+      border-bottom: 1px solid #1c1c1c;
+    }
+    header a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 18px;
+      padding: 20px;
+    }
+    #player {
+      background: var(--panel);
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 380px;
+    }
+    #playerOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+    #infoPanel {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #statusBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 60, 125, 0.15);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    #statusBadge.offline {
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+    }
+    #creatorName {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    #viewerCount {
+      color: #ffb74d;
+      font-weight: 600;
+    }
+    #chatBox {
+      flex: 1;
+      background: rgba(0,0,0,0.35);
+      border-radius: 12px;
+      padding: 12px;
+      overflow-y: auto;
+      min-height: 160px;
+    }
+    #messageLog {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    footer {
+      text-align: center;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid #1c1c1c;
+    }
+    @media (max-width: 960px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      #infoPanel {
+        order: -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>Johka Live</strong></div>
+    <a href="/index.html">← Terug naar overzicht</a>
+  </header>
+  <main>
+    <section id="player">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div id="playerOverlay">Verbinden met stream…</div>
+    </section>
+    <aside id="infoPanel">
+      <div id="statusBadge" class="offline"><span>●</span><span id="statusText">Offline</span></div>
+      <div id="creatorName">Onbekende creator</div>
+      <div id="viewerCount">👁 0 kijkers</div>
+      <div id="chatBox">
+        <div id="messageLog">Welkom in de kamer! Chat is binnenkort beschikbaar.</div>
+      </div>
+      <button id="leaveBtn" style="padding:12px 18px;border:none;border-radius:10px;background:rgba(255,60,125,0.25);color:#fff;font-weight:600;cursor:pointer;">🚪 Verlaat kamer</button>
+    </aside>
+  </main>
+  <footer>Johka Live – powered by LiveKit ⚡</footer>
+  <script type="module" src="/js/viewer.js"></script>
+</body>
+</html>

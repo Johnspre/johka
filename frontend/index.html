@@ -89,14 +89,19 @@
           container.innerHTML = "<p class='no-streams'>Momenteel geen live streams…</p>";
           return;
         }
-        container.innerHTML = data.map(s => `
-        <div class="card" onclick="location.href='/u/${s.room_slug}'">
-        <img src="/uploads/previews/${s.snapshot || "default.gif"}" alt="${s.username}">
+        container.innerHTML = data
+          .map(s => {
+            const preview = s.preview_url || s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
+            return `
+          <div class="card" onclick="location.href='/creatorpage.html?u=${encodeURIComponent(s.username)}'">
+            <img src="${preview}" alt="${s.username}">
         <div class="info">
         <div class="name">${s.username}</div>
         <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
         </div>
-        </div>`).join("");
+        </div>`;
+          })
+          .join("");
 
       } catch (err) {
         container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";

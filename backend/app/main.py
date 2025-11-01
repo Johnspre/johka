@@ -77,6 +77,11 @@ os.makedirs(AVATAR_DIR, exist_ok=True)
 os.makedirs(GALLERY_DIR, exist_ok=True)
 os.makedirs(PREVIEW_DIR, exist_ok=True)
 
+def _preview_url(filename: Optional[str]) -> Optional[str]:
+    if not filename:
+        return None
+    return f"https://api.johka.be/static/uploads/previews/{filename}"
+
 # ============================================
 # APP & CORS
 # ============================================
@@ -324,6 +329,50 @@ def list_rooms(s: Session = Depends(db)):
     rows = s.query(RoomDB).join(UserDB, RoomDB.user_id == UserDB.id).all()
     return [RoomOut(slug=r.slug, name=r.name, owner=r.owner.username) for r in rows]
 
+@app.get("/api/rooms/{slug}")
+def get_room(slug: str, s: Session = Depends(db)):
+    normalized = _normalize_room_slug(slug)
+    room = (
+        s.query(RoomDB)
+        .join(UserDB, RoomDB.user_id == UserDB.id)
+        .filter(RoomDB.slug == normalized)
+        .first()
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail="Room niet gevonden")
+    live_slug = None
+    live_viewers = 0
+    preview_url = None
+    try:
+        with engine.connect() as conn:
+            res = conn.execute(
+                text(
+                    """
+                SELECT room_slug, COALESCE(viewers, 0) AS viewers, snapshot
+                  FROM live_sessions
+                 WHERE user_id = :uid AND ended_at IS NULL
+                 LIMIT 1
+                """
+                ),
+                {"uid": room.owner.id},
+            ).first()
+            if res:
+                live_slug = res._mapping["room_slug"]
+                live_viewers = res._mapping["viewers"]
+                preview_url = _preview_url(res._mapping["snapshot"])
+    except Exception:
+        pass
+    return {
+        "slug": room.slug,
+        "name": room.name,
+        "owner": room.owner.username,
+        "livekit_room": f"{room.slug}-room",
+        "live_slug": live_slug,
+        "is_live": bool(live_slug),
+        "viewers": live_viewers,
+        "preview_url": preview_url,
+    }
+
 
 # ==========================================
 # 🎥 LIVEKIT TOKEN GENERATOR (v1.0.17)
@@ -338,10 +387,48 @@ LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "johka_live_key")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "d7f6c8b14d3a4e52b9e8a6f9c1b7a3d5f4e2a8c6d9b3f1e4a7c2b5e6d8a9f3c1")
 LIVEKIT_URL = os.getenv("LIVEKIT_URL", "wss://live.johka.be")
 
+class LivekitTokenRequest(BaseModel):
+    room_slug: Optional[str] = None
+
+
+def _normalize_room_slug(raw_slug: str) -> str:
+    """Normalize inkomende slug zodat die overeenkomt met RoomDB.slug."""
+
+    slug = raw_slug.strip().lower()
+    if slug.endswith("-room"):
+        slug = slug[: -len("-room")]
+    return slugify(slug)
+
 @app.post("/api/livekit-token")
-async def create_livekit_token(user: UserDB = Depends(get_current_user)):
+async def create_livekit_token(
+    payload: Optional[LivekitTokenRequest] = Body(default=None),
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db),
+):
+    payload = payload or LivekitTokenRequest()
+    # Bepaal voor welke kamer het token moet gelden.
+    requested_slug = payload.room_slug.strip() if payload.room_slug else None
+
+    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+
+    if requested_slug:
+        normalized_slug = _normalize_room_slug(requested_slug)
+        target_room = s.query(RoomDB).filter(RoomDB.slug == normalized_slug).first()
+        if not target_room:
+            raise HTTPException(status_code=404, detail="Room niet gevonden")
+        room_owner_username = target_room.owner.username
+        room_name = f"{target_room.slug}-room"
+        is_owner = owner_room is not None and owner_room.id == target_room.id
+    else:
+        if owner_room:
+            room_name = f"{owner_room.slug}-room"
+        else:
+            fallback_slug = slugify(user.username or "room")
+            room_name = f"{fallback_slug}-room"
+        room_owner_username = user.username
+        is_owner = True
     identity = user.username
-    room_name = f"{identity}-room"
+    
 
     now = int(time.time())
     exp = now + (12 * 3600)
@@ -350,8 +437,8 @@ async def create_livekit_token(user: UserDB = Depends(get_current_user)):
     grants = {
         "room": room_name,
         "roomJoin": True,
-        "roomCreate": True,
-        "canPublish": True,
+        "roomCreate": is_owner,
+        "canPublish": is_owner,
         "canSubscribe": True,
         "canPublishData": True,
     }
@@ -365,7 +452,10 @@ async def create_livekit_token(user: UserDB = Depends(get_current_user)):
     }
 
     token = jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
-    print(f"🎥 LiveKit token voor user={identity}, room={room_name}")
+    print(
+        "🎥 LiveKit token voor user=%s, room=%s (owner=%s, publish=%s)"
+        % (identity, room_name, room_owner_username, is_owner)
+    )
     return {"token": token, "room": room_name, "url": LIVEKIT_URL}
 
 
@@ -375,16 +465,24 @@ async def create_livekit_token(user: UserDB = Depends(get_current_user)):
 # (Postgres tabellen: live_sessions, live_viewers verwacht)
 # ============================================
 @app.post("/api/go-live")
-def go_live(user: UserDB = Depends(get_current_user)):
-    room_slug = user.username.lower().replace(" ", "_")
+def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
+    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if owner_room:
+        room_slug = owner_room.slug
+    else:
+        room_slug = slugify(user.username)
     with engine.connect() as conn:
         conn.execute(
             text(
                 """
-            INSERT INTO live_sessions (user_id, room_slug, started_at, viewers)
-            VALUES (:uid, :slug, NOW(), COALESCE((SELECT viewers FROM live_sessions WHERE user_id=:uid),0))
+            INSERT INTO live_sessions (user_id, room_slug, started_at, viewers, snapshot)
+            VALUES (:uid, :slug, NOW(), 0, NULL)
             ON CONFLICT (user_id)
-            DO UPDATE SET room_slug=:slug, started_at=NOW(), ended_at=NULL
+            DO UPDATE SET room_slug=:slug,
+                          started_at=NOW(),
+                          ended_at=NULL,
+                          viewers=0,
+                          snapshot=NULL
             """
             ),
             {"uid": user.id, "slug": room_slug},
@@ -400,7 +498,7 @@ def end_live(user: UserDB = Depends(get_current_user)):
             text(
                 """
             UPDATE live_sessions
-               SET ended_at = NOW()
+               SET ended_at = NOW(), viewers = 0
              WHERE user_id = :uid
                AND ended_at IS NULL
             """
@@ -431,11 +529,24 @@ async def room_view_start(request: Request):
         raise HTTPException(404, "No active live found")
     session_id = sess[0]
     cur.execute(
-        "INSERT INTO live_viewers (session_id, viewer_ip) VALUES (%s,%s)",
+        "SELECT id FROM live_viewers WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
         (session_id, ip),
     )
+    if cur.fetchone():
+        conn.close()
+        return {"ok": True}
+
     cur.execute(
-        "UPDATE live_sessions SET viewers = viewers + 1 WHERE id=%s",
+        "UPDATE live_viewers SET left_at=NULL, joined_at=NOW() WHERE session_id=%s AND viewer_ip=%s",
+        (session_id, ip),
+    )
+    if cur.rowcount == 0:
+        cur.execute(
+            "INSERT INTO live_viewers (session_id, viewer_ip, joined_at) VALUES (%s,%s,NOW())",
+            (session_id, ip),
+        )
+    cur.execute(
+        "UPDATE live_sessions SET viewers = COALESCE(viewers, 0) + 1 WHERE id=%s",
         (session_id,),
     )
     conn.commit()
@@ -453,10 +564,7 @@ async def room_view_end(request: Request):
 
     conn = _psql()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT id FROM live_sessions WHERE room_slug=%s AND ended_at IS NULL",
-        (room,),
-    )
+    
     sess = cur.fetchone()
     if sess:
         session_id = sess[0]
@@ -468,7 +576,12 @@ async def room_view_end(request: Request):
             "UPDATE live_viewers SET left_at=NOW() WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
             (session_id, ip),
         )
-        conn.commit()
+        if cur.rowcount:
+            cur.execute(
+                "UPDATE live_sessions SET viewers = GREATEST(COALESCE(viewers, 0) - 1, 0) WHERE id=%s",
+                (session_id,),
+            )
+            conn.commit()
     conn.close()
     return {"ok": True}
 
@@ -484,8 +597,11 @@ def public_streams():
             rows = conn.execute(
                 text(
                     """
-                SELECT u.username, s.room_slug AS room, COALESCE(s.viewers, 0) AS viewers,
-                       COALESCE(u.avatar_url, 'https://picsum.photos/seed/' || u.username || '/400/300') AS thumb
+                SELECT u.username,
+                       s.room_slug AS room,
+                       COALESCE(s.viewers, 0) AS viewers,
+                       s.snapshot,
+                       COALESCE(u.avatar_url, '') AS avatar_url
                   FROM live_sessions s
                   JOIN users u ON u.id = s.user_id
                  WHERE s.ended_at IS NULL
@@ -493,15 +609,22 @@ def public_streams():
             """
                 )
             )
-            out = [
-                {
-                    "username": r._mapping["username"],
-                    "room": r._mapping["room"],
-                    "viewers": r._mapping["viewers"],
-                    "thumb": r._mapping["thumb"],
-                }
-                for r in rows
-            ]
+            out = []
+            for r in rows:
+                snapshot = r._mapping["snapshot"]
+                avatar = r._mapping["avatar_url"] or None
+                fallback = avatar or f"https://picsum.photos/seed/{r._mapping['username']}/400/300"
+                preview = _preview_url(snapshot) or fallback
+                out.append(
+                    {
+                        "username": r._mapping["username"],
+                        "room": r._mapping["room"],
+                        "viewers": r._mapping["viewers"],
+                        "snapshot": snapshot,
+                        "preview_url": preview,
+                        "thumb": fallback,
+                    }
+                )
             if out:
                 return out
     except Exception:
@@ -512,18 +635,24 @@ def public_streams():
         {
             "username": "Luna",
             "room": "luna-room",
+            "snapshot": None,
+            "preview_url": "https://picsum.photos/seed/luna/400/300",
             "thumb": "https://picsum.photos/seed/luna/400/300",
             "viewers": 48,
         },
         {
             "username": "Bruno",
             "room": "bruno-room",
+            "snapshot": None,
+            "preview_url": "https://picsum.photos/seed/bruno/400/300",
             "thumb": "https://picsum.photos/seed/bruno/400/300",
             "viewers": 112,
         },
         {
             "username": "Milan",
             "room": "milan-room",
+            "snapshot": None,
+            "preview_url": "https://picsum.photos/seed/milan/400/300",
             "thumb": "https://picsum.photos/seed/milan/400/300",
             "viewers": 23,
         },
@@ -641,13 +770,42 @@ def public_creator(username: str, s: Session = Depends(db)):
         except Exception:
             gallery = []
 
+    live_slug = None
+    live_viewers = 0
+    try:
+        with engine.connect() as conn:
+            res = conn.execute(
+                text(
+                    """
+                SELECT room_slug, COALESCE(viewers, 0) AS viewers, snapshot
+                  FROM live_sessions
+                 WHERE user_id = :uid AND ended_at IS NULL
+                 LIMIT 1
+                """
+                ),
+                {"uid": u.id},
+            ).first()
+            if res:
+                live_slug = res._mapping["room_slug"]
+                live_viewers = res._mapping["viewers"]
+                preview_url = _preview_url(res._mapping["snapshot"])
+            else:
+                preview_url = None
+    except Exception:
+        preview_url = None
+
+
     return {
         "username": u.username,
         "bio": getattr(u, "bio", ""),
         "avatar": getattr(u, "avatar_url", ""),
         "banner": "",
         "gallery": gallery,
-        "room_slug": room.slug if room else None,
+        "room_slug": live_slug,
+        "is_live": bool(live_slug),
+        "viewers": live_viewers,
+        "preview_url": preview_url or getattr(u, "avatar_url", ""),
+        "default_room": room.slug if room else None,
     }
 
 

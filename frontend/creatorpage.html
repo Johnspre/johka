@@ -34,6 +34,11 @@
       color: var(--accent);
     }
 
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     #backLink {
       color: #ddd;
       text-decoration: none;
@@ -180,10 +185,14 @@
         if (!res.ok) throw new Error("Niet gevonden");
         const c = await res.json();
 
-        document.getElementById("banner").style.backgroundImage = `url('${c.banner || "/default-banner.jpg"}')`;
-        document.getElementById("avatar").src = c.avatar || "/default-avatar.png";
+        const previewImage = c.preview_url || c.banner || "/default-banner.jpg";
+        document.getElementById("banner").style.backgroundImage = `url('${previewImage}')`;
+        document.getElementById("avatar").src = c.avatar || c.preview_url || "/default-avatar.png";
         document.getElementById("username").textContent = c.username;
         document.getElementById("bio").textContent = c.bio || "Geen bio opgegeven.";
+        const statusEl = document.getElementById("liveStatus");
+        statusEl.textContent = c.is_live ? `🟢 Live — ${c.viewers || 0} kijkers` : "🔴 Offline";
+
 
         const gal = document.querySelector(".gallery");
         gal.innerHTML = "";
@@ -197,9 +206,17 @@
           gal.innerHTML = "<p>Geen foto's beschikbaar.</p>";
         }
 
-        document.getElementById("joinBtn").onclick = () => {
-          window.location.href = `/room.html?room=${c.room_slug}`;
-        };
+        const joinBtn = document.getElementById("joinBtn");
+        if (c.room_slug) {
+          joinBtn.disabled = false;
+          joinBtn.textContent = "🎥 Bekijk Live Room";
+          joinBtn.onclick = () => {
+            window.location.href = `/viewer.html?room=${c.room_slug}&u=${encodeURIComponent(c.username)}`;
+          };
+        } else {
+          joinBtn.disabled = true;
+          joinBtn.textContent = "🔴 Momenteel offline";
+        }
       } catch (e) {
         document.body.innerHTML = `<h2 style='text-align:center;color:white;margin-top:50px;'>❌ Gebruiker niet gevonden</h2>`;
       }
@@ -212,9 +229,13 @@
       if(!token) return alert("Je moet ingelogd zijn om te tippen.");
       const params = new URLSearchParams(window.location.search);
       const username = params.get("u");
-      const res = await fetch(API + "/tip/" + username + "?amount=" + amount, {
+      const res = await fetch(`${API}/tip`, {
         method:"POST",
-        headers:{Authorization:"Bearer "+token}
+        headers:{
+          Authorization:"Bearer " + token,
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify({ to_username: username, amount })
       });
       if(res.ok) alert("💸 Tip gestuurd!");
       else alert("❌ Tip mislukt");
@@ -239,9 +260,10 @@
       <img id="avatar" src="/default-avatar.png" alt="avatar">
       <div id="info">
         <div id="username">Gebruiker</div>
+        <div id="liveStatus" style="margin-bottom:6px;color:#ccc;">Status onbekend…</div>
         <div id="bio">Laden...</div>
         <div class="buttons">
-          <button id="joinBtn" class="btn">🎥 Bekijk Live Room</button>
+          <button id="joinBtn" class="btn" disabled>🎥 Verbinden…</button>
         </div>
         <div id="tipBox">
           <input type="number" id="tipAmount" placeholder="10">

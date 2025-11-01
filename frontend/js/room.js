@@ -8,7 +8,7 @@ import {
 } from "https://cdn.jsdelivr.net/npm/livekit-client@2.0.10/+esm";
 
 const API = "https://api.johka.be/api";
-const WS_URL = "wss://live.johka.be";
+const DEFAULT_LIVEKIT_URL = "wss://live.johka.be";
 
 const el = (id) => document.getElementById(id);
 let room;
@@ -22,8 +22,13 @@ let miniPreview = null;
 let snapshotTimer = null;
 let tipTotal = 0;
 let isLeaving = false; // ⬅️ nieuw: intentional leave flag
-const token = localStorage.getItem("token"); // auth token voor heartbeat/stop
-
+let isLive = false;
+let isStarting = false;
+let livekitUrl = DEFAULT_LIVEKIT_URL;
+let livekitRoomName = null;
+let liveRoomSlug = null;
+let authToken = null;
+let storedUsername = null;
 // ========== STATUSBALK ==========
 function updateStatusBar(text, color = "#ccc") {
   const status = el("status");
@@ -104,9 +109,9 @@ function attachVideo(videoTrack, identity) {
 
 // ========== INIT ==========
 async function init() {
-  const token = localStorage.getItem("token");
-  const username = localStorage.getItem("username");
-  if (!token || !username) {
+  authToken = localStorage.getItem("token");
+  storedUsername = localStorage.getItem("username");
+  if (!authToken || !storedUsername) {
     alert("Geen token gevonden — log opnieuw in.");
     location.href = "/login.html";
     return;
@@ -116,17 +121,19 @@ async function init() {
   await startCameraPreview();
 
   // ✅ LiveKit token
-  let lkToken, slug;
+  let lkToken;
   try {
     const res = await fetch(`${API}/livekit-token`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
       body: "{}",
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
     lkToken = data.token;
-    slug = data.room;
+    livekitRoomName = data.room || null;
+    liveRoomSlug = (data.room || "").replace(/-room$/, "") || null;
+    livekitUrl = data.url || DEFAULT_LIVEKIT_URL;
     console.log("🎬 LiveKit token ontvangen:", data);
   } catch (err) {
     addMsg(`❌ Token ophalen mislukt: ${err.message}`);
@@ -167,7 +174,7 @@ async function init() {
     })
     .on(RoomEvent.Disconnected, handleDisconnect); // ⬅️ één centrale handler
 
-  await connectLiveKit(lkToken, slug);
+  await connectLiveKit(lkToken);
 
   // ---------- BUTTONS ----------
   el("goLive")?.addEventListener("click", startAV);
@@ -179,9 +186,8 @@ async function init() {
   // ✅ Start broadcasting button
   el("startBroadcast")?.addEventListener("click", async () => {
   console.log("🚀 Start Broadcasting clicked");
-  await startAV();      // zet audio/video aan
-  await publishTracks(); // camera + mic naar server sturen
-});
+    await startAV();
+  });
 
 
   // Chat form (indien aanwezig) — we blokkeren default submit
@@ -290,19 +296,18 @@ function pickSnapshotVideo() {
 
 async function sendSnapshot() {
   const video = pickSnapshotVideo();
-  if (!video || video.readyState < 2) return;
+  if (!isLive || !video || video.readyState < 2 || !authToken) return;
   const canvas = document.createElement("canvas");
   canvas.width = 320;
   canvas.height = 240;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const img = canvas.toDataURL("image/jpeg", 0.7);
-  const token = localStorage.getItem("token");
-  if (!token) return;
+  
   try {
     await fetch(`${API}/room/snapshot`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ image: img }),
     });
     console.log("📸 Snapshot verstuurd");
@@ -312,10 +317,21 @@ async function sendSnapshot() {
 }
 
 function startSnapshotLoop() {
-  if (snapshotTimer) clearInterval(snapshotTimer);
-  snapshotTimer = setInterval(sendSnapshot, 60000);
+  stopSnapshotLoop();
+  if (!isLive) return;
+  snapshotTimer = setInterval(() => {
+    if (isLive) {
+      sendSnapshot();
+    }
+  }, 60000);
 }
 
+function stopSnapshotLoop() {
+  if (snapshotTimer) {
+    clearInterval(snapshotTimer);
+    snapshotTimer = null;
+  }
+}
 // ========== CHAT ==========
 async function sendChat() {
   const input = el("chatInput");
@@ -390,9 +406,56 @@ async function manualReconnect() {
   reconnectAttempts = 0;
   await refreshLiveKitTokenAndReconnect();
 }
+async function announceGoLive() {
+  if (isLive) return true;
+  if (!authToken) {
+    addMsg("⚠️ Niet ingelogd — kan go-live niet registreren.");
+    return false;
+  }
+  try {
+    const res = await fetch(`${API}/go-live`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = payload?.detail || res.statusText;
+      addMsg(`❌ Go-live mislukt: ${detail}`);
+      return false;
+    }
+    liveRoomSlug = payload?.room || liveRoomSlug;
+    isLive = true;
+    return true;
+  } catch (err) {
+    addMsg(`❌ Go-live fout: ${err.message}`);
+    return false;
+  }
+}
+
+async function endLive() {
+  if (!isLive || !authToken) {
+    isLive = false;
+    return;
+  }
+  try {
+    await fetch(`${API}/end-live`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+  } catch (err) {
+    console.warn("end-live fout", err);
+  } finally {
+    isLive = false;
+  }
+}
 
 // ===================== LIVE START =====================
 async function startAV() {
+  if (isStarting) {
+    addMsg("⚠️ Uitzending wordt al gestart...");
+    return;
+  }
+  isStarting = true;
   addMsg("🎥 Start camera en microfoon...");
   updateStatusBar("Uitzending starten...", "#ff9800");
 
@@ -433,7 +496,25 @@ async function startAV() {
         await liveVideo.play().catch(() => {});
       }
     }
-
+    updateStatusBar("📡 Media klaar – live gaan...", "#ff9800");
+    const registered = await announceGoLive();
+    if (!registered) {
+      updateStatusBar("❌ Go-live mislukt", "#e53935");
+      showLiveIndicator(false);
+      stopSnapshotLoop();
+      try {
+        localTracks.forEach((track) => {
+          try {
+            room?.localParticipant?.unpublishTrack?.(track);
+          } catch (_) {}
+          track.stop();
+        });
+      } finally {
+        localTracks = [];
+      }
+      await startCameraPreview();
+      return;
+    }
     updateStatusBar("📡 Live actief", "#e53935");
     showLiveIndicator(true);
 
@@ -442,11 +523,11 @@ async function startAV() {
     startSnapshotLoop();
 
     // ✅ heartbeat starten
-    if (!window.johkaHeartbeat && token) {
+    if (!window.johkaHeartbeat && authToken) {
       window.johkaHeartbeat = setInterval(() => {
-        fetch("/api/live/start", {
+        fetch(`${API}/live/start`, {
           method: "POST",
-          headers: { Authorization: "Bearer " + token }
+          headers: { Authorization: `Bearer ${authToken}` },
         }).catch(() => {});
       }, 20000);
     }
@@ -455,6 +536,21 @@ async function startAV() {
     updateStatusBar("❌ Fout bij uitzending", "#e53935");
     addMsg("❌ Fout bij start camera: " + err.message);
     console.error(err);
+    if (isLive) {
+      await endLive();
+    }
+    showLiveIndicator(false);
+    stopSnapshotLoop();
+    localTracks.forEach((track) => {
+      try {
+        room?.localParticipant?.unpublishTrack?.(track);
+      } catch (_) {}
+      track.stop();
+    });
+    localTracks = [];
+    await startCameraPreview();
+  } finally {
+    isStarting = false;
   }
 }
 
@@ -470,13 +566,13 @@ async function leaveRoom() {
     }
 
     // backend melden dat stream stopt
-    if (token) {
-      fetch("/api/live/stop", {
+    if (authToken) {
+      fetch(`${API}/live/stop`, {
         method: "POST",
-        headers: { Authorization: "Bearer " + token }
+        headers: { Authorization: `Bearer ${authToken}` }
       }).catch(() => {});
     }
-
+    await endLive();
     // disconnect + tracks stoppen
     if (room) await room.disconnect();
     localTracks.forEach(t => t.stop());
@@ -488,21 +584,23 @@ async function leaveRoom() {
     updateStatusBar("Verbinding verbroken", "#888");
     showLiveIndicator(false);
 
-    // snapshot loop stoppen
-    if (snapshotTimer) clearInterval(snapshotTimer);
+    stopSnapshotLoop();
+    isLive = false;
+    isStarting = false;
+    isLeaving = false;
   }
 }
 
 // ========== CONNECT / RECONNECT ==========
-async function connectLiveKit(lkToken, slug) {
+async function connectLiveKit(lkToken) {
   try {
     updateStatusBar("Verbinden met LiveKit...", "#ff9800");
-    await room.connect(WS_URL, lkToken);
+    await room.connect(livekitUrl, lkToken);
 
     // ❌ GEEN extra Disconnected handler met reload hier! (dat veroorzaakte reconnect bij typen)
 
     updateStatusBar("Verbonden ✅", "#4caf50");
-    addMsg(`✅ Verbonden met LiveKit-server (${slug})`);
+    addMsg(`✅ Verbonden met LiveKit-server (${livekitRoomName || "room"})`);
     reconnectAttempts = 0;
   } catch (err) {
     updateStatusBar("Verbinding mislukt", "#e53935");
@@ -514,7 +612,7 @@ async function handleDisconnect() {
   if (isLeaving) return; // we hebben zelf de verbinding beëindigd
   showLiveIndicator(false);
   updateStatusBar("Verbinding verbroken – herverbinden...", "#ff9800");
-  if (snapshotTimer) clearInterval(snapshotTimer);
+  stopSnapshotLoop();
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectAttempts++;
   const delay = Math.min(15000, 3000 * reconnectAttempts);
@@ -522,21 +620,27 @@ async function handleDisconnect() {
 }
 
 async function refreshLiveKitTokenAndReconnect() {
-  if (isLeaving) return;
+  if (isLeaving || !authToken) return;
   try {
     const res = await fetch(`${API}/livekit-token`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
       body: "{}",
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
-    await room.connect(WS_URL, data.token);
+    livekitRoomName = data.room || livekitRoomName;
+    liveRoomSlug = (data.room || "").replace(/-room$/, "") || liveRoomSlug;
+    livekitUrl = data.url || livekitUrl;
+    await room.connect(livekitUrl, data.token);
     updateStatusBar("✅ Herverbonden", "#4caf50");
     addMsg("✅ Herverbonden met LiveKit");
     reconnectAttempts = 0;
-    showLiveIndicator(true);
-    startSnapshotLoop();
+    if (isLive) {
+      showLiveIndicator(true);
+      await sendSnapshot();
+      startSnapshotLoop();
+    }
   } catch (err) {
     updateStatusBar("Herverbinden mislukt", "#e53935");
     handleDisconnect();
@@ -550,6 +654,13 @@ function updateViewerList() {
 }
 
 // ========== STARTUP ==========
+window.addEventListener("beforeunload", () => {
+  if (isLive && authToken) {
+    const headers = { Authorization: `Bearer ${authToken}` };
+    fetch(`${API}/live/stop`, { method: "POST", headers, keepalive: true }).catch(() => {});
+    fetch(`${API}/end-live`, { method: "POST", headers, keepalive: true }).catch(() => {});
+  }
+});
 window.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
 
 // ======================================================
