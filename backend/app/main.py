@@ -229,12 +229,11 @@ def _psql():
 # ============================================
 # AUTH – get_current_user
 # ============================================
-def get_current_user(
-    request: Request,
-    authorization: Optional[str] = Header(None),
-    s: Session = Depends(db),
+def _resolve_authorization_user(
+    token_header: Optional[str],
+    s: Session,
 ) -> UserDB:
-    token_header = authorization or request.headers.get("authorization")
+    
     if not token_header:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
 
@@ -259,6 +258,25 @@ def get_current_user(
     if not u:
         raise HTTPException(status_code=401, detail="User not found")
     return u
+def get_current_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    s: Session = Depends(db),
+) -> UserDB:
+    token_header = authorization or request.headers.get("authorization")
+    return _resolve_authorization_user(token_header, s)
+
+
+def get_optional_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    s: Session = Depends(db),
+) -> Optional[UserDB]:
+    token_header = authorization or request.headers.get("authorization")
+    if not token_header:
+        return None
+    return _resolve_authorization_user(token_header, s)
+
 
 
 # ============================================
@@ -404,24 +422,22 @@ def _normalize_room_slug(raw_slug: str) -> str:
 @app.post("/api/livekit-token")
 async def create_livekit_token(
     payload: Optional[LivekitTokenRequest] = Body(default=None),
-    user: UserDB = Depends(get_current_user),
+    user: Optional[UserDB] = Depends(get_optional_user),
     s: Session = Depends(db),
 ):
     payload = payload or LivekitTokenRequest()
-    # Bepaal voor welke kamer het token moet gelden.
+    
     requested_slug = payload.room_slug.strip() if payload.room_slug else None
 
-    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    owner_room = None
+    target_room = None
+    is_owner = False
+    can_chat = False
 
-    if requested_slug:
-        normalized_slug = _normalize_room_slug(requested_slug)
-        target_room = s.query(RoomDB).filter(RoomDB.slug == normalized_slug).first()
-        if not target_room:
-            raise HTTPException(status_code=404, detail="Room niet gevonden")
-        room_owner_username = target_room.owner.username
-        room_name = f"{target_room.slug}-room"
-        is_owner = owner_room is not None and owner_room.id == target_room.id
-    else:
+    if user:
+        owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+
+    if user and not requested_slug:
         if owner_room:
             room_name = f"{owner_room.slug}-room"
         else:
@@ -429,26 +445,43 @@ async def create_livekit_token(
             room_name = f"{fallback_slug}-room"
         room_owner_username = user.username
         is_owner = True
-    base_identity = user.username or f"user-{user.id}"
-    identity = base_identity
+        base_identity = user.username or f"user-{user.id}"
+        identity = base_identity
+        can_chat = True
+    else:
+        if not requested_slug:
+            raise HTTPException(status_code=400, detail="room_slug is vereist")
+        normalized_slug = _normalize_room_slug(requested_slug)
+        target_room = s.query(RoomDB).filter(RoomDB.slug == normalized_slug).first()
+        if not target_room:
+            raise HTTPException(status_code=404, detail="Room niet gevonden")
+        room_owner_username = target_room.owner.username
+        room_name = f"{target_room.slug}-room"
+        if user:
+            is_owner = owner_room is not None and owner_room.id == target_room.id
+            base_identity = user.username or f"user-{user.id}"
+            identity = base_identity
+            can_chat = True
+        else:
+            identity = f"gast-{uuid4().hex[:6]}"
+            can_chat = False
 
-    # Viewers (niet-eigenaars) moeten tegelijk kunnen kijken zonder elkaar te kicken.
-    # LiveKit forceert unieke identities, dus voeg een korte suffix toe voor kijkers.
-    if not is_owner:
-        identity = f"{base_identity}#{uuid4().hex[:6]}"
+    if user and not is_owner:
+        identity = f"{identity}#{uuid4().hex[:6]}"
+
     
 
     now = int(time.time())
     exp = now + (12 * 3600)
 
-    # ✅ Dit formaat verwacht LiveKit v1.9.x
+    
     grants = {
         "room": room_name,
         "roomJoin": True,
         "roomCreate": is_owner,
         "canPublish": is_owner,
         "canSubscribe": True,
-        "canPublishData": True,
+        "canPublishData": can_chat,
     }
 
     payload = {
@@ -456,7 +489,7 @@ async def create_livekit_token(
         "sub": identity,
         "nbf": now - 10,
         "exp": exp,
-        "video": grants,  # ⚠️ sleutelnaam hier terug naar "video"
+        "video": grants, 
     }
 
     token = jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
@@ -464,7 +497,13 @@ async def create_livekit_token(
         "🎥 LiveKit token voor user=%s, room=%s (owner=%s, publish=%s)"
         % (identity, room_name, room_owner_username, is_owner)
     )
-    return {"token": token, "room": room_name, "url": LIVEKIT_URL}
+    return {
+        "token": token,
+        "room": room_name,
+        "url": LIVEKIT_URL,
+        "can_chat": can_chat,
+        "identity": identity,
+    }
 
 
 

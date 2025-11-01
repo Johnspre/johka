@@ -34,6 +34,8 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 let reconnecting = false;
 let viewingActive = false;
+let chatAllowed = Boolean(localStorage.getItem("token"));
+let guestNoticeShown = false;
 
 function setStatus({ live = false, text = "Offline" }) {
   statusBadge.classList.toggle("offline", !live);
@@ -67,13 +69,16 @@ function logMessage(text, type = "system") {
 }
 
 function setChatEnabled(enabled) {
-  if (chatInput) chatInput.disabled = !enabled;
-  if (chatSendBtn) chatSendBtn.disabled = !enabled;
-  updateChatNotice(
-    enabled
-      ? "Je bent verbonden met de chat."
-      : "Chat is tijdelijk niet beschikbaar tijdens het verbinden."
-  );
+ const canInteract = enabled && chatAllowed;
+  if (chatInput) chatInput.disabled = !canInteract;
+  if (chatSendBtn) chatSendBtn.disabled = !canInteract;
+  if (!chatAllowed) {
+    updateChatNotice("Log in om deel te nemen aan de chat.");
+  } else if (canInteract) {
+    updateChatNotice("Je bent verbonden met de chat.");
+  } else {
+    updateChatNotice("Chat is tijdelijk niet beschikbaar tijdens het verbinden.");
+  }
 }
 
 function attachVideoTrack(videoTrack) {
@@ -145,31 +150,49 @@ async function fetchRoomInfoQuiet() {
 }
 
 async function obtainToken() {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    showOverlay("🔒 Inloggen vereist om streams te bekijken");
-    updateChatNotice("Log in om de chat te gebruiken.");
-    setTimeout(() => {
-      window.location.href = "/login.html";
-    }, 1500);
-    throw new Error("not authenticated");
+  const storedToken = localStorage.getItem("token");
+  const headers = { "Content-Type": "application/json" };
+  if (storedToken) {
+    headers.Authorization = `Bearer ${storedToken}`;
   }
 
   const res = await fetch(`${API}/livekit-token`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ room_slug: normalizedSlug }),
   });
 
-  const data = await res.json();
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (res.status === 401 && storedToken) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    chatAllowed = false;
+    logMessage("ℹ️ Je sessie is verlopen. Je bent nu als gast verbonden.", "system");
+    return obtainToken();
+  }
+
   if (!res.ok) {
     const detail = data?.detail || res.statusText;
     showOverlay(`❌ ${detail}`);
     updateChatNotice("Chat niet beschikbaar: token ophalen mislukt.");
     throw new Error(detail);
+  }
+
+  chatAllowed = Boolean(data?.can_chat);
+  if (chatAllowed) {
+    guestNoticeShown = false;
+  } else {
+    updateChatNotice("Log in om deel te nemen aan de chat.");
+    if (!guestNoticeShown) {
+      logMessage("🔒 Log in om deel te nemen aan de chat.", "system");
+      guestNoticeShown = true;
+    }
   }
   return data;
 }
@@ -317,6 +340,10 @@ async function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
+  if (!chatAllowed) {
+    window.location.href = "/login.html";
+    return;
+  }
   if (!lkRoom || lkRoom.state !== "connected") {
     logMessage("❌ Niet verbonden met de chat.", "system");
     return;
