@@ -199,7 +199,14 @@ function setupRoomEvents(room) {
 
 function updateViewerCount() {
   if (!lkRoom) return;
-  const total = Math.max(lkRoom.participants.size + 1, 0);
+  const participantCollection = lkRoom.participants;
+  const remoteCount =
+    typeof participantCollection?.size === "number"
+      ? participantCollection.size
+      : Array.isArray(participantCollection)
+        ? participantCollection.length
+        : 0;
+  const total = Math.max(remoteCount + 1, 0);
   viewerCountEl.textContent = `👁 ${total} kijkers`;
   if (lkRoom.state === "connected") {
     setStatus({ live: true, text: `Live — ${total} kijkers` });
