@@ -98,6 +98,8 @@
       font-weight: 600;
     }
     #chatBox {
+      display: flex;
+      flex-direction: column;
       flex: 1;
       background: rgba(0,0,0,0.35);
       border-radius: 12px;
@@ -108,6 +110,69 @@
     #messageLog {
       font-size: 14px;
       line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .chat-message {
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #f5f5f5;
+    }
+    .chat-message.system {
+      background: rgba(255, 255, 255, 0.04);
+      color: #bdbdbd;
+      font-style: italic;
+    }
+    .chat-message.self {
+      background: rgba(255, 60, 125, 0.25);
+      align-self: flex-end;
+    }
+    .chat-message.remote {
+      background: rgba(98, 0, 234, 0.25);
+    }
+    .chat-message.tip {
+      background: rgba(255, 183, 77, 0.25);
+      color: #ffe0b2;
+    }
+    #chatForm {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    #chatInput {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+    }
+    #chatInput:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    #chatSendBtn {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: rgba(255,60,125,0.8);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    #chatSendBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    #chatSendBtn:not(:disabled):hover {
+      background: rgba(255,60,125,1);
+    }
+    #chatNotice {
+      font-size: 12px;
+      color: var(--muted);
     }
     footer {
       text-align: center;
@@ -141,8 +206,13 @@
       <div id="creatorName">Onbekende creator</div>
       <div id="viewerCount">👁 0 kijkers</div>
       <div id="chatBox">
-        <div id="messageLog">Welkom in de kamer! Chat is binnenkort beschikbaar.</div>
+      <div id="messageLog"></div>
       </div>
+      <form id="chatForm" autocomplete="off">
+        <input id="chatInput" type="text" placeholder="Typ een bericht…" maxlength="280" required>
+        <button type="submit" id="chatSendBtn">Verstuur</button>
+      </form>
+      <div id="chatNotice">Alleen ingelogde gebruikers kunnen berichten versturen.</div>
       <button id="leaveBtn" style="padding:12px 18px;border:none;border-radius:10px;background:rgba(255,60,125,0.25);color:#fff;font-weight:600;cursor:pointer;">🚪 Verlaat kamer</button>
     </aside>
   </main>
