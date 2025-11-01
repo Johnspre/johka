@@ -4,6 +4,7 @@
 # ============================================
 
 import os
+from uuid import uuid4
 import re
 import time
 import base64
@@ -380,6 +381,7 @@ def get_room(slug: str, s: Session = Depends(db)):
 # =========================================================
 # 🎥 LIVEKIT TOKEN GENERATOR (v3 – compatibel met LiveKit 1.9.x)
 # =========================================================
+from uuid import uuid4
 import time, os, jwt
 from fastapi import Depends
 
@@ -427,7 +429,13 @@ async def create_livekit_token(
             room_name = f"{fallback_slug}-room"
         room_owner_username = user.username
         is_owner = True
-    identity = user.username
+    base_identity = user.username or f"user-{user.id}"
+    identity = base_identity
+
+    # Viewers (niet-eigenaars) moeten tegelijk kunnen kijken zonder elkaar te kicken.
+    # LiveKit forceert unieke identities, dus voeg een korte suffix toe voor kijkers.
+    if not is_owner:
+        identity = f"{base_identity}#{uuid4().hex[:6]}"
     
 
     now = int(time.time())
@@ -962,10 +970,27 @@ async def upload_snapshot_sequence(
 # ============================================
 # LIVE PRESENCE (Redis heartbeat for room.js)
 # ============================================
+RedisError = Exception
 try:
     from redis.asyncio import Redis
-    redis = Redis(host="redis", port=6379, decode_responses=True)
-except:
+    from redis.exceptions import RedisError
+
+    REDIS_URL = os.getenv("REDIS_URL")
+    REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "SuperSterkWachtwoord123")
+
+    if REDIS_URL:
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
+    else:
+        redis = Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD or None,
+            decode_responses=True,
+        )
+except Exception as exc:  # pragma: no cover - Redis optional in some envs
+    print(f"⚠️  Redis disabled: {exc}")
     redis = None
 
 
@@ -973,15 +998,21 @@ except:
 async def live_start(u: UserDB = Depends(get_current_user)):
     """Room.js heartbeat: streamer bevestigt dat die live is."""
     if redis:
-        # Bewaar username 60 seconden als "live"
-        await redis.set(f"live:{u.username}", "1", ex=60)
-    return {"status": "live"}
+       try:
+            # Bewaar username 60 seconden als "live"
+            await redis.set(f"live:{u.username}", "1", ex=60)
+            except RedisError as exc:
+            print(f"⚠️  Redis heartbeat failed: {exc}")
+            return {"status": "live"}
 
 
 @app.post("/api/live/stop")
 async def live_stop(u: UserDB = Depends(get_current_user)):
     if redis:
-        await redis.delete(f"live:{u.username}")
+        try:
+            await redis.delete(f"live:{u.username}")
+        except RedisError as exc:
+            print(f"⚠️  Redis cleanup failed: {exc}")
     return {"status": "stopped"}
 
 
@@ -990,7 +1021,11 @@ async def live_active():
     """Frontend kan zien wie live is (UI future use)."""
     if not redis:
         return []
-    keys = await redis.keys("live:*")
+    try:
+        keys = await redis.keys("live:*")
+    except RedisError as exc:
+        print(f"⚠️  Redis fetch failed: {exc}")
+        return []
     return [k.split(":")[1] for k in keys]
 
 

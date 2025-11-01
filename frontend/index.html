@@ -92,8 +92,11 @@
         container.innerHTML = data
           .map(s => {
             const preview = s.preview_url || s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
+            const target = s.room
+              ? `/viewer.html?room=${encodeURIComponent(s.room)}&u=${encodeURIComponent(s.username)}`
+              : `/creatorpage.html?u=${encodeURIComponent(s.username)}`;
             return `
-          <div class="card" onclick="location.href='/creatorpage.html?u=${encodeURIComponent(s.username)}'">
+          <div class="card" onclick="location.href='${target}'">
             <img src="${preview}" alt="${s.username}">
         <div class="info">
         <div class="name">${s.username}</div>
