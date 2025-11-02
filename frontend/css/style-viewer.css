@@ -169,9 +169,8 @@ main.viewer-layout {
 }
 
 #viewer-left {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -189,7 +188,8 @@ main.viewer-layout {
   min-height: 0;
 }
 #viewer-left #player {
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 #remoteVideo {
@@ -223,8 +223,7 @@ main.viewer-layout {
   gap: 12px;
 }
 
-#viewer-left #creatorInfoBox {
-  min-height: 0;
+#viewer-right #creatorInfoBox {
   max-height: clamp(220px, 32vh, 360px);
   overflow-y: auto;
 }
