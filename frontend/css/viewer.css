@@ -36,13 +36,21 @@
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
       gap: 20px;
       padding: 20px;
       box-sizing: border-box;
       height: calc(100vh - var(--topbar-height) - var(--footer-height));
       min-height: 0;
       overflow: hidden;
+      align-items: stretch;
+    }
+    #viewer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-height: 0;
+      height: 100%;
     }
     #player {
       background: var(--panel);
@@ -52,7 +60,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      flex: 1 1 0;
+      flex: 1 1 auto;
       min-height: 0;
       max-height: 100%;
       width: 100%;
@@ -223,6 +231,9 @@
       .viewer-layout {
         height: auto;
       }
+      #viewer-left {
+        height: auto;
+      }
       #infoPanel {
         order: -1;
       }
@@ -232,58 +243,71 @@
     }
 
     .viewer-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  padding: 20px;
-  height: 100%;
-  min-height: 0;
-  box-sizing: border-box;
-}
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: 20px;
+      padding: 20px;
+      height: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+      align-items: stretch;
+    }
 
 #viewer-left {
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-height: 0;
-  
+  height: 100%;
 }
 
 #creatorInfoBox {
-  background: #111;
-  border-radius: 10px;
-  padding: 10px;
-  max-height: 220px;
-  overflow-y: auto;
-}
+      background: rgba(10, 10, 10, 0.92);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: min(45vh, 320px);
+      overflow-y: auto;
+    }
 
 #creatorTabs {
-  display: flex;
-  gap: 10px;
-  border-bottom: 1px solid #222;
-  padding-bottom: 6px;
-  margin-bottom: 10px;
-}
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 6px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
 
 #creatorTabs button {
-  background: #222;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #ccc;
-}
+      background: rgba(255,255,255,0.08);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #e0e0e0;
+      font-weight: 600;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+
+#creatorTabs button:hover {
+      background: rgba(255,255,255,0.14);
+    }
 
 #creatorTabs .active {
-  background: #ff006a;
-  color: white;
-}
+      background: rgba(255, 60, 125, 0.85);
+      color: white;
+    }
 
-#creatorContent {
-  font-size: 14px;
-  color: #ddd;
-  min-height: 80px;
-}
+    #creatorContent {
+      font-size: 14px;
+      color: #ddd;
+      min-height: 80px;
+    }
 
 #viewer-right {
   display: flex;
@@ -295,16 +319,16 @@
 }
 
 #player {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 #chatBox {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
-  background: #111;
-  padding: 10px;
-  border-radius: 10px;
+  background: rgba(0,0,0,0.35);
+  padding: 12px;
+  border-radius: 12px;
   overflow-y: auto;
 }
 
