@@ -4,6 +4,8 @@
       --panel: #121212;
       --accent: #ff3c7d;
       --muted: #888;
+      --topbar-height: 68px;
+      --footer-height: 44px;
     }
     body {
       margin: 0;
@@ -11,8 +13,10 @@
       background: var(--bg);
       color: #fff;
       min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     header {
       display: flex;
@@ -21,6 +25,8 @@
       padding: 14px 20px;
       background: #0c0c0c;
       border-bottom: 1px solid #1c1c1c;
+      box-sizing: border-box;
+      min-height: var(--topbar-height);
     }
     header a {
       color: #fff;
@@ -31,8 +37,12 @@
       flex: 1;
       display: grid;
       grid-template-columns: 2fr 1fr;
-      gap: 18px;
+      gap: 20px;
       padding: 20px;
+      box-sizing: border-box;
+      height: calc(100vh - var(--topbar-height) - var(--footer-height));
+      min-height: 0;
+      overflow: hidden;
     }
     #player {
       background: var(--panel);
@@ -42,7 +52,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 380px;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
     }
     #playerOverlay {
       position: absolute;
@@ -188,13 +202,30 @@
       font-size: 12px;
       color: var(--muted);
       border-top: 1px solid #1c1c1c;
+      min-height: var(--footer-height);
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     @media (max-width: 960px) {
+        body {
+        height: auto;
+        overflow: auto;
+      }
       main {
         grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+      .viewer-layout {
+        height: auto;
       }
       #infoPanel {
         order: -1;
+      }
+      #creatorInfoBox {
+        max-height: none;
       }
     }
 
@@ -203,11 +234,17 @@
   grid-template-columns: 2fr 1fr;
   gap: 20px;
   padding: 20px;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 #viewer-left {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 20px;
+  min-height: 0;
+  overflow: hidden;
   gap: 20px;
 }
 
@@ -215,6 +252,8 @@
   background: #111;
   border-radius: 10px;
   padding: 10px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 #creatorTabs {
@@ -249,6 +288,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 #chatBox {
