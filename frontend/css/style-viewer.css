@@ -169,14 +169,14 @@ main.viewer-layout {
 }
 
 #viewer-left {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 16px;
+  min-height: 0;
 }
 
 /* ===== VIDEO PANEL ===== */
 #player {
-  flex: 1 1 auto;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -187,6 +187,9 @@ main.viewer-layout {
   justify-content: center;
   align-items: center;
   min-height: 0;
+}
+#viewer-left #player {
+  height: 100%;
 }
 
 #remoteVideo {
@@ -220,6 +223,11 @@ main.viewer-layout {
   gap: 12px;
 }
 
+#viewer-left #creatorInfoBox {
+  min-height: 0;
+  max-height: clamp(220px, 32vh, 360px);
+  overflow-y: auto;
+}
 
 #creatorTabs {
   display: flex;
