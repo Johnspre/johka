@@ -180,17 +180,14 @@ main.viewer-layout {
 
 /* ===== VIDEO PANEL ===== */
 #player {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
   overflow: hidden;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 0;
+  aspect-ratio: 16 / 9; /* ✅ netjes, geen rare rekking */
+  margin-bottom: 10px;
 }
+
 #viewer-left #player {
   flex: 1 1 auto;
   min-height: 0;
@@ -464,4 +461,17 @@ footer {
   #viewer-right {
     height: auto;
   }
+}
+
+body {
+  background: #fff;
+  color: #000;
+  overflow-y: auto !important;
+}
+
+.viewer-layout {
+  display: flex;
+  gap: 14px;
+  padding: 10px;
+  flex-wrap: wrap; /* zodat het netjes breekt op kleine schermen */
 }
