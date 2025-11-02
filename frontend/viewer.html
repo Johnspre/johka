@@ -189,6 +189,88 @@
         order: -1;
       }
     }
+
+    .viewer-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+
+#viewer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#creatorInfoBox {
+  background: #111;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+#creatorTabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+#creatorTabs button {
+  background: #222;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #ccc;
+}
+
+#creatorTabs .active {
+  background: #ff006a;
+  color: white;
+}
+
+#creatorContent {
+  font-size: 14px;
+  color: #ddd;
+  min-height: 80px;
+}
+
+#viewer-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#chatBox {
+  flex: 1;
+  background: #111;
+  padding: 10px;
+  border-radius: 10px;
+  overflow-y: auto;
+}
+
+#chatInputBar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+}
+
+#emojiPopup {
+  position: absolute;
+  background: #111;
+  border: 1px solid #333;
+  padding: 8px;
+  border-radius: 8px;
+  width: 220px;
+  height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+
+#emojiPopup.show { display: block; }
+
   </style>
 </head>
 <body>
@@ -196,27 +278,49 @@
     <div><strong>Johka Live</strong></div>
     <a href="/index.html">← Terug naar overzicht</a>
   </header>
-  <main>
-    <section id="player">
+  <main class="viewer-layout">
+  <section id="viewer-left">
+    <div id="player">
       <video id="remoteVideo" autoplay playsinline></video>
-      <div id="playerOverlay">Verbinden met stream…</div>
-    </section>
-    <aside id="infoPanel">
-      <div id="statusBadge" class="offline"><span>●</span><span id="statusText">Offline</span></div>
-      <div id="creatorName">Onbekende creator</div>
-      <div id="viewerCount">👁 0 kijkers</div>
-      <div id="chatBox">
-      <div id="messageLog"></div>
+      <div id="playerOverlay">Verbinden – wachten op video…</div>
+    </div>
+
+    <!-- Creator info / bio panel zoals Chaturbate -->
+    <div id="creatorInfoBox">
+      <div id="creatorTabs">
+        <button class="active" data-tab="bio">Bio</button>
+        <button data-tab="pics">Pics & Videos</button>
+        <button data-tab="more">More Rooms Like This</button>
+        <button data-tab="share">Share</button>
       </div>
-      <form id="chatForm" autocomplete="off">
-        <input id="chatInput" type="text" placeholder="Typ een bericht…" maxlength="280" required>
-        <button id="viewerEmojiBtn" type="button" title="Emoji">😊</button>
-        <button type="submit" id="chatSendBtn">Verstuur</button>
-      </form>
-      <div id="chatNotice">Alleen ingelogde gebruikers kunnen berichten versturen.</div>
-      <button id="leaveBtn" style="padding:12px 18px;border:none;border-radius:10px;background:rgba(255,60,125,0.25);color:#fff;font-weight:600;cursor:pointer;">🚪 Verlaat kamer</button>
-    </aside>
-  </main>
+      <div id="creatorContent">
+        <p id="creatorBio">Laden…</p>
+      </div>
+    </div>
+  </section>
+
+  <aside id="viewer-right">
+    <div id="streamStatusBox">
+      <div id="statusBadge" class="offline"><span>●</span><span id="statusText">Offline</span></div>
+      <div id="creatorName">Onbekend</div>
+      <div id="viewerCount">👁 0 kijkers</div>
+    </div>
+
+    <div id="chatBox">
+      <div id="messageLog">Verbinden met stream...</div>
+    </div>
+
+    <div id="chatInputBar">
+      <input id="chatInput" type="text" placeholder="Typ een bericht..." />
+      <button id="emojiBtn">😊</button>
+      <button id="chatSend">Verstuur</button>
+      <div id="emojiPopup" class="hidden"></div>
+    </div>
+
+    <button id="leaveBtn" class="leave-btn">🚪 Verlaat kamer</button>
+  </aside>
+</main>
+
   <footer>Johka Live – powered by LiveKit ⚡</footer>
   <script type="module" src="/js/viewer.js"></script>
 </body>
