@@ -149,6 +149,18 @@
       background: rgba(0,0,0,0.35);
       color: #fff;
     }
+    #viewerEmojiBtn {
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+      cursor: pointer;
+    }
+    #viewerEmojiBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     #chatInput:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -173,6 +185,8 @@
     #chatNotice {
       font-size: 12px;
       color: var(--muted);
+      min-height: 16px;
+      margin-top: 4px;
     }
     footer {
       text-align: center;
@@ -310,12 +324,13 @@
       <div id="messageLog">Verbinden met stream...</div>
     </div>
 
-    <div id="chatInputBar">
-      <input id="chatInput" type="text" placeholder="Typ een bericht..." />
-      <button id="emojiBtn">😊</button>
-      <button id="chatSend">Verstuur</button>
+    <form id="chatForm" class="chat-input-bar">
+      <input id="chatInput" type="text" placeholder="Typ een bericht..." autocomplete="off" />
+      <button id="viewerEmojiBtn" type="button">😊</button>
+      <button id="chatSendBtn" type="submit">Verstuur</button>
       <div id="emojiPopup" class="hidden"></div>
-    </div>
+    </form>
+    <div id="chatNotice"></div>
 
     <button id="leaveBtn" class="leave-btn">🚪 Verlaat kamer</button>
   </aside>

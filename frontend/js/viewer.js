@@ -25,6 +25,7 @@ const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatNotice = document.getElementById("chatNotice");
+const emojiBtn = document.getElementById("viewerEmojiBtn");
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -75,6 +76,7 @@ function setChatEnabled(enabled) {
  const canInteract = enabled && chatAllowed;
   if (chatInput) chatInput.disabled = !canInteract;
   if (chatSendBtn) chatSendBtn.disabled = !canInteract;
+  if (emojiBtn) emojiBtn.disabled = !canInteract;
   if (!chatAllowed) {
     updateChatNotice("Log in om deel te nemen aan de chat.");
   } else if (canInteract) {
@@ -395,6 +397,14 @@ if (chatForm) {
     sendChatMessage();
   });
 }
+
+if (chatSendBtn) {
+  chatSendBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    sendChatMessage();
+  });
+}
+
 
 chatInput?.addEventListener("keydown", (event) => {
   event.stopPropagation();
