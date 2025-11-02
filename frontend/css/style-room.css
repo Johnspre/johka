@@ -184,10 +184,13 @@ main {
   padding: 10px;
   font-size: 14px;
 }
-
+/* tab-content moet flex zijn zodat #chat kan “vullen” en intern scrollen */
 .tabContent.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;   /* cruciaal voor goed scroll-gedrag */
 }
+
 
 /* CHAT BOX */
 #chat {
@@ -806,4 +809,128 @@ main {
 /* Zorg dat er ruimte onderaan is */
 body {
   padding-bottom: 50px;
+}
+/* ✅ Chat section fixed scrolling box */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+
+/* --- FIX CHATBOX GROWING PROBLEM --- */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+
+
+/* Chat form always stays bottom */
+#chatForm, #donationBar {
+  flex-shrink: 0;
+}
+
+/* --- CHATPANEEL: vaste hoogte + interne scroll --- */
+main {
+  /* main mag content niet groter maken dan viewport */
+  min-height: 0;
+  height: calc(100vh - 150px); /* navbar + statusbar samen (~150px). Pas aan indien nodig. */
+}
+
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;   /* laat kinderen correct scrollen */
+  overflow: hidden;
+}
+
+#chatTab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;  /* alleen #chat mag scrollen */
+}
+
+/* de lijst met berichten: vult de ruimte en scrollt intern */
+#chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+/* invoerbalken mogen niet meeschalen */
+#chatForm,
+#donationBar {
+  flex: 0 0 auto;
+}
+/* 🚫 STOP chat panel from growing */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#chatTab {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ✅ Chat stays fixed height and scrolls INSIDE */
+#chat {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  height: auto !important;
+  background: #fff;
+}
+
+/* ✅ Input bars fixed under chat */
+#chatForm,
+#donationBar {
+  flex: 0 0 auto !important;
+}
+
+/* ✅ Force chat box to stay fixed height & scroll internally */
+#chatTab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+#chat {
+  flex: 1;
+  overflow-y: auto !important;
+  max-height: 45vh !important;
+  min-height: 200px;
+  padding-right: 6px;
+  box-sizing: border-box;
+}
+
+/* ✅ Chat input bar always sticks to bottom */
+#chatForm, #donationBar {
+  flex-shrink: 0;
+}
+
+/* ✅ Prevent horizontal scroll anywhere */
+#sidebar, #chat, #chatTab {
+  overflow-x: hidden !important;
 }
