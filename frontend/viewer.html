@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Johka Live – Bekijk stream</title>
  
+  <link rel="stylesheet" href="/css/style-index.css">
+<link rel="stylesheet" href="/css/style-viewer.css">
+
  
   <link rel="stylesheet" href="/css/viewer.css">
 
@@ -16,17 +19,17 @@
     <div class="logo">Johka Live 🔥</div>
     <nav>
       <a href="/index.html">Home</a>
-      <a href="/discover.html">Discover</a>
-      <a href="/tags.html">Tags</a>
-      <a href="/private.html">Private Shows</a>
-      <a href="/following.html">Following</a>
-      <a href="/merch.html">Merch</a>
+      <a href="#">Discover</a>
+      <a href="#">Tags</a>
+      <a href="#">Private Shows</a>
+      <a href="#">Following</a>
+      <a href="#">Merch</a>
     </nav>
   </div>
 
   <div class="nav-right">
     <div class="profile-menu" id="profileMenu">
-      <button id="profileBtn">👤 Anonymous ▾</button>
+      <button id="profileBtn">👤 Gebruiker ▾</button>
       <div class="dropdown" id="profileDropdown">
         <div class="dropdown-content"></div>
       </div>
@@ -86,91 +89,7 @@
 
   <footer>Johka Live – powered by LiveKit ⚡</footer>
   <script type="module" src="/js/viewer.js"></script>
-  <script>
-// Copy logic from index.html
-const profileBtn = document.getElementById("profileBtn");
-const dropdown = document.getElementById("profileDropdown");
-const token = localStorage.getItem("token");
-const username = localStorage.getItem("username");
-
-// Dropdown toggle
-profileBtn?.addEventListener("click", () =>
-  dropdown.classList.toggle("show")
-);
-
-window.addEventListener("click", e => {
-  if (!e.target.matches("#profileBtn")) dropdown.classList.remove("show");
-});
-
-// Check token expiry (same method)
-function tokenExpired(token) {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    const now = Math.floor(Date.now() / 1000);
-    return payload.exp && payload.exp < now;
-  } catch {
-    return true;
-  }
-}
-
-// UI logic
-if (token && !tokenExpired(token)) {
-  profileBtn.innerText = `👤 ${username} ▾`;
-  document.querySelector(".dropdown-content").innerHTML = `
-    <p><strong>Status:</strong> Basic Member</p>
-    <p><strong>Tokens:</strong> 0</p>
-    <hr>
-    <a href="/profile.html">My Profile</a>
-    <a href="/feedback.html">Send Feedback</a>
-    <a href="#" onclick="logoutUser(); return false;" style="color:#ff7300;">(Log Out)</a>
-  `;
-} else {
-  profileBtn.innerText = "👤 Anonymous ▾";
-  document.querySelector(".dropdown-content").innerHTML = `
-    <p><strong>Status:</strong> Anonymous</p>
-    <p><strong>Tokens:</strong> 0</p>
-    <hr>
-    <a href="#" onclick="openLoginPopup(); return false;" style="color:#ff7300;">(Log In)</a>
-    <a href="/register.html" style="color:#0080c0;">(Sign Up)</a>
-  `;
-}
-
-// Broadcast button logic
-document.getElementById("broadcastBtn")?.addEventListener("click", () => {
-  if (!token || tokenExpired(token)) {
-    openLoginPopup();
-  } else {
-    location.href = "/room.html";
-  }
-});
-
-// Modal functions (re-use from index)
-function openLoginPopup() {
-  const modal = document.getElementById("loginModal");
-  const iframe = modal.querySelector("iframe");
-  const dark = document.body.classList.contains("dark");
-  iframe.src = `/login.html?dark=${dark}`;
-  modal.classList.add("show");
-}
-
-function logoutUser() {
-  localStorage.removeItem("username");
-  localStorage.removeItem("token");
-  location.reload();
-}
-</script>
-<div id="loginModal" class="modal">
-  <div class="modal-content fade-in">
-    <button class="close" onclick="closeLoginPopup()">✖</button>
-    <iframe src="" class="login-frame"></iframe>
-  </div>
-</div>
-
-<script>
-function closeLoginPopup() {
-  document.getElementById("loginModal").classList.remove("show");
-}
-</script>
+  <script src="/js/navbar-auth.js"></script>
 
 </body>
 </html>

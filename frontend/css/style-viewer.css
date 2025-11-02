@@ -1,0 +1,162 @@
+/* Global */
+body {
+  background: #fff;
+  color: #000;
+  font-family: Arial, sans-serif;
+  margin: 0;
+}
+
+/* Layout grid */
+.viewer-layout {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 18px;
+  padding: 90px 18px 18px;
+  min-height: calc(100vh - 90px);
+}
+
+/* LEFT SIDE — VIDEO + TABS */
+#viewer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ✅ BIG fullscreen-style video */
+#player {
+  width: 100%;
+  height: 82vh;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#remoteVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Info box */
+#creatorInfoBox {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 14px;
+  min-height: 180px;
+}
+
+/* Tabs */
+#creatorTabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#creatorTabs button {
+  padding: 8px 14px;
+  border: none;
+  background: #eaeaea;
+  color: #000;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#creatorTabs button.active {
+  background: #ff9100;
+  color: #fff;
+}
+
+/* RIGHT — CHAT COLUMN */
+#viewer-right {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chat box */
+#chatBox {
+  flex: 1;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+#messageLog {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #000;
+}
+
+/* Chat input bar */
+.chat-input-bar {
+  display: flex;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 10px;
+}
+
+#chatInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: #000;
+}
+
+#viewerEmojiBtn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* Buttons */
+button, .leave-btn {
+  background: #ff9100;
+  border: none;
+  color: #fff;
+  padding: 9px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover, .leave-btn:hover {
+  background: #ff7400;
+}
+
+/* Leave room */
+.leave-btn {
+  margin-top: 12px;
+}
+
+/* Emoji box */
+#emojiPopup {
+  position: absolute;
+  bottom: 60px;
+  right: 20px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  width: 200px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  display: none;
+}
+
+#emojiPopup.show {
+  display: block;
+}
