@@ -20,15 +20,14 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100%;
 }
 body {
   font-family: var(--font);
   color: var(--text);
   background: var(--bg);
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
+  overflow-y: auto;
 }
 
 /* ===== HEADER / NAVIGATION ===== */
@@ -151,7 +150,6 @@ nav a:hover {
 
 /* ===== MAIN LAYOUT ===== */
 main.viewer-layout {
-  flex: 1 1 auto;
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 1.1fr);
   grid-template-areas:
@@ -161,8 +159,7 @@ main.viewer-layout {
   padding: 24px 24px 40px;
   box-sizing: border-box;
   background: var(--bg);
-  align-items: start;
-  min-height: 0;
+  align-items: stretch;
 }
 @media (max-width: 1400px) {
   main.viewer-layout {
@@ -297,6 +294,18 @@ main.viewer-layout {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+@media (min-width: 1200px) {
+  #viewer-left,
+  #viewer-right {
+    min-height: clamp(520px, 80vh, 960px);
+  }
+
+  #viewer-left #player {
+    aspect-ratio: auto;
+    height: 100%;
+    margin-bottom: 0;
+  }
 }
 
 #streamStatusBox {
@@ -485,15 +494,4 @@ footer {
   }
 }
 
-body {
-  background: #fff;
-  color: #000;
-  overflow-y: auto !important;
-}
 
-.viewer-layout {
-  display: flex;
-  gap: 14px;
-  padding: 10px;
-  flex-wrap: wrap; /* zodat het netjes breekt op kleine schermen */
-}
