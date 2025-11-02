@@ -372,6 +372,25 @@ async function sendChatMessage() {
     logMessage(`❌ Bericht niet verzonden (${err.message})`, "system");
   }
 }
+// ✅ Toon naam & tokens in topbar als user ingelogd is
+function initViewerTopbar() {
+  try {
+    const username = localStorage.getItem("username");
+    const tokens = localStorage.getItem("tokens") || 0;
+
+    if (username) {
+      const n = document.getElementById("viewerName");
+      const t = document.getElementById("viewerTokens");
+      if (n) n.textContent = `👤 ${username}`;
+      if (t) t.textContent = `${tokens} Tokens`;
+    }
+  } catch (e) {
+    console.warn("Topbar init failed", e);
+  }
+}
+
+// 🔥 Run direct
+initViewerTopbar();
 
 
 
@@ -457,3 +476,4 @@ start();
     input.focus();
   });
 })();
+

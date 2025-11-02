@@ -10,10 +10,36 @@
 
 </head>
 <body>
-  <header>
-    <div><strong>Johka Live</strong></div>
-    <a href="/index.html">← Terug naar overzicht</a>
-  </header>
+  <!-- 🔝 TOP BAR -->
+<header class="viewer-topbar">
+  <div class="left-side">
+    <a href="/index.html" class="logo">Johka Live 🔥</a>
+
+    <nav class="viewer-menu">
+      <a href="/index.html">Home</a>
+      <a href="#">Discover</a>
+      <a href="#">Tags</a>
+      <a href="#">Private Shows</a>
+      <a href="#">Following</a>
+      <a href="#">Merch</a>
+    </nav>
+  </div>
+
+  <div class="right-side">
+    <div id="viewerProfileInfo">
+      <span id="viewerName">👤 Guest</span>
+      <span class="sep">|</span>
+      <span>Status: <b id="viewerLevel">Basic</b></span>
+      <span class="sep">|</span>
+      <span>You have: <b id="viewerTokens">0 Tokens</b></span>
+    </div>
+
+    <button id="viewerUpgradeBtn" class="top-btn">Upgrade</button>
+    <button id="viewerBuyBtn" class="top-btn">Buy Tokens</button>
+    <button id="broadcastBtn" class="top-btn live-button">Broadcast Yourself</button>
+  </div>
+</header>
+
   <main class="viewer-layout">
   <section id="viewer-left">
     <div id="player">

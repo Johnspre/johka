@@ -279,3 +279,67 @@
 
 #emojiPopup.show { display: block; }
 
+.viewer-topbar {
+  background: #0c0c0c;
+  color: white;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1c1c1c;
+  font-size: 13px;
+}
+
+.viewer-topbar .left-side {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.viewer-topbar .logo {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+}
+
+.viewer-menu a {
+  color: #ddd;
+  margin-right: 12px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.viewer-menu a:hover {
+  color: #ff8e00;
+}
+
+.viewer-topbar .right-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-btn {
+  background: #343434;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.live-button {
+  background: #ff3b6a;
+}
+
+.top-btn:hover {
+  opacity: .85;
+}
+
+.sep {
+  color: #555;
+  margin: 0 6px;
+}
