@@ -428,7 +428,7 @@ start();
 // === EMOJI PICKER VOOR VIEWER CHAT ===
 (function setupViewerEmojiPicker () {
   const btn = document.getElementById("viewerEmojiBtn");
-  const input = document.getElementById("viewerChatInput");
+  const input = document.getElementById("chatInput");
   if (!btn || !input) return;
 
   const picker = new EmojiButton({
