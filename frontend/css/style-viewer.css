@@ -153,16 +153,36 @@ nav a:hover {
 main.viewer-layout {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.1fr);
   grid-template-areas:
     "video chat"
     "info info";
-  gap: 16px;
-  padding: 20px;
+  gap: 20px;
+  padding: 24px 24px 40px;
   box-sizing: border-box;
   background: var(--bg);
-  align-items: stretch;
+  align-items: start;
   min-height: 0;
+}
+@media (max-width: 1400px) {
+  main.viewer-layout {
+    grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr);
+    gap: 18px;
+    padding: 20px 20px 32px;
+  }
+}
+
+@media (min-width: 1680px) {
+  main.viewer-layout {
+    grid-template-columns: minmax(0, 3.4fr) minmax(0, 1fr);
+    gap: 24px;
+    padding: 32px 32px 48px;
+  }
+
+  #player {
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+  }
 }
 
 #viewer-left,
@@ -182,10 +202,12 @@ main.viewer-layout {
 #player {
   width: 100%;
   background: #000;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   aspect-ratio: 16 / 9; /* ✅ netjes, geen rare rekking */
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  position: relative;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
 }
 
 #viewer-left #player {
