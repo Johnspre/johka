@@ -7,6 +7,10 @@ import {
   createLocalTracks,
 } from "https://cdn.jsdelivr.net/npm/livekit-client@2.0.10/+esm";
 
+import { EmojiButton } from "https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.2/dist/index.min.js";
+
+
+
 const API = "https://api.johka.be/api";
 const DEFAULT_LIVEKIT_URL = "wss://live.johka.be";
 
@@ -688,3 +692,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+
+// === EMOJI PICKER ===
+(function setupEmojiPicker () {
+  const emojiBtn = document.getElementById("emojiBtn");
+  const input = document.getElementById("chatInput");
+  if (!emojiBtn || !input) return; // niets te doen als UI er niet is
+
+  const picker = new EmojiButton({
+    position: "top-start",
+    theme: "light",
+    zIndex: 9999
+  });
+
+  emojiBtn.addEventListener("click", () => {
+    picker.togglePicker(emojiBtn);
+  });
+
+  picker.on("emoji", (selection) => {
+    const emoji = selection.emoji || selection; // lib geeft selection.emoji
+    const start = input.selectionStart ?? input.value.length;
+    const end   = input.selectionEnd   ?? input.value.length;
+    input.setRangeText(emoji, start, end, "end"); // invoegen op cursor
+    input.focus();
+  });
+})();

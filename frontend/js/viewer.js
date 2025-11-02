@@ -5,6 +5,9 @@ import {
   DataPacket_Kind,
 } from "https://cdn.jsdelivr.net/npm/livekit-client@2.0.10/+esm";
 
+import { EmojiButton } from "https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.2/dist/index.min.js";
+
+
 const API = "https://api.johka.be/api";
 const params = new URLSearchParams(window.location.search);
 const requestedRoom = params.get("room");
@@ -421,3 +424,26 @@ window.addEventListener("beforeunload", () => {
 });
 
 start();
+
+// === EMOJI PICKER VOOR VIEWER CHAT ===
+(function setupViewerEmojiPicker () {
+  const btn = document.getElementById("viewerEmojiBtn");
+  const input = document.getElementById("viewerChatInput");
+  if (!btn || !input) return;
+
+  const picker = new EmojiButton({
+    position: "top-start",
+    theme: "light",
+    zIndex: 9999
+  });
+
+  btn.addEventListener("click", () => picker.togglePicker(btn));
+
+  picker.on("emoji", (selection) => {
+    const emoji = selection.emoji || selection;
+    const start = input.selectionStart ?? input.value.length;
+    const end   = input.selectionEnd   ?? input.value.length;
+    input.setRangeText(emoji, start, end, "end");
+    input.focus();
+  });
+})();
