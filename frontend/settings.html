@@ -17,9 +17,6 @@
       color:#fff;
       font-family:"Segoe UI",sans-serif;
       margin:0;
-      display:flex;
-      flex-direction:column;
-      min-height:100vh;
     }
     nav{
       background:var(--bg-panel);
@@ -119,6 +116,230 @@
       background:#0a0a0a;
       border-top:1px solid #111;
     }
+    /* 🌐 Modernere stijl voor instellingen */
+.settings-panel {
+  background: #fff;
+  color: #222;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  padding: 30px;
+  max-width: 900px;
+  margin: 40px auto;
+}
+
+.settings-panel h2 {
+  color: #ff7a00;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.profile-form label {
+  font-weight: 600;
+  color: #444;
+}
+
+.profile-form input,
+.profile-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fafafa;
+  color: #000;
+}
+
+.profile-form button {
+  background: #ff7a00;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.profile-form button:hover {
+  background: #e26d00;
+}
+
+/* 📸 Media upload */
+.media {
+  margin-top: 40px;
+}
+
+.media h3 {
+  color: #ff7a00;
+  margin-top: 30px;
+}
+
+.avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 3px solid #ff7a00;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+
+.gallery img {
+  border: 2px solid #eee;
+  border-radius: 6px;
+}
+
+.muted {
+  color: #888;
+  font-size: 13px;
+}
+/* 🌤️ Volledige pagina wit en scrollbaar */
+body {
+  background: #f9f9f9 !important;
+  color: #222;
+  overflow-y: auto !important;
+  height: auto !important;
+}
+
+/* hoofdcontainer netjes gecentreerd, niet vast in hoogte */
+main.settings-panel {
+  background: #fff;
+  color: #222;
+  max-width: 950px;
+  margin: 50px auto;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* voorkom dat iets anders scrollt binnen zijn eigen frame */
+html, body, main {
+  height: auto !important;
+  overflow: visible !important;
+}
+/* 🧹 Verberg de globale navigatiebalk op de settingspagina */
+nav.navbar,
+header,
+#topbar {
+  display: none !important;
+}
+
+/* Zorg dat de pagina netjes naar boven schuift */
+body {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+/* 🌐 Maak settings-paneel volledig scrollbaar met de hoofdsite */
+html, body {
+  height: auto !important;
+  overflow-y: visible !important;
+  overflow-x: hidden;
+  background: #f9f9f9;
+}
+
+/* Zorg dat het hoofdvenster niet z’n eigen scroll heeft */
+main.settings-panel {
+  height: auto !important;
+  overflow: visible !important;
+  position: relative;
+}
+
+/* Verwijder eventueel scroll uit tussenliggende containers */
+.container,
+.wrapper,
+#content,
+section {
+  height: auto !important;
+  overflow: visible !important;
+}
+/* 🚫 Schakel flex en vaste hoogte uit */
+html, body {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-y: visible !important;
+  overflow-x: hidden !important;
+  background: #f9f9f9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ✅ Laat het hoofdgedeelte vrij meeschuiven met de pagina */
+main,
+main.settings-panel {
+  display: block !important;
+  position: relative !important;
+  height: auto !important;
+  min-height: unset !important;
+  overflow: visible !important;
+  flex: none !important;
+  box-sizing: border-box;
+}
+
+/* 🧹 Schakel oude flexcontainers uit die nog scroll veroorzaken */
+body > * {
+  flex: none !important;
+}
+/* 🧩 LAATSTE FIX – alle interne scrolls uitschakelen */
+html, body {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-y: visible !important;
+  overflow-x: hidden !important;
+  background: #f9f9f9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* verwijder alle flex- of grid-layout op body */
+body {
+  display: block !important;
+  flex: none !important;
+}
+
+/* zorg dat het hoofdgedeelte gewoon met body meescrolt */
+main,
+main.settings-panel {
+  display: block !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  flex: none !important;
+  position: static !important;
+  box-sizing: border-box !important;
+}
+
+/* verwijder ook scroll uit directe wrappers */
+.container,
+.wrapper,
+#content,
+section,
+div {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
   </style>
 
   <script>
@@ -272,48 +493,59 @@
   </script>
 </head>
 <body>
-  <nav>
-    <div id="logo">Johka 💫</div>
-    <div id="navLinks">
-      <a href="/index.html">🏠 Home</a>
-      <a href="/room.html">💬 Live</a>
-      <a href="/wallet.html">💼 Wallet</a>
-      <a href="/settings.html" style="color:#fff;">⚙️ Instellingen</a>
-      <button id="logoutBtn">🚪 Logout</button>
+  
+
+ <main class="settings-panel">
+  <h2>👤 Profielinstellingen</h2>
+
+  <form id="profileForm" class="profile-form">
+    <div class="form-grid">
+      <div>
+        <label>Display Name</label>
+        <input type="text" id="username" required>
+      </div>
+
+      <div>
+        <label>E-mail</label>
+        <input type="email" id="email" required>
+      </div>
+
+      <div>
+        <label>Nieuw wachtwoord</label>
+        <input type="password" id="password" placeholder="Leeg laten om niet te wijzigen">
+      </div>
+
+      <div>
+        <label>Locatie</label>
+        <input type="text" id="location" placeholder="Bijv. Antwerpen">
+      </div>
+
+      <div class="full">
+        <label>Bio / Over mij</label>
+        <textarea id="bio" rows="4" placeholder="Vertel iets over jezelf, wat maakt jouw stream uniek..."></textarea>
+      </div>
+
+      <div class="full">
+        <p id="roomSlugInfo" class="muted"></p>
+      </div>
     </div>
-  </nav>
 
-  <main>
-    <h2>⚙️ Mijn Profiel</h2>
+    <button type="submit" id="saveBtn">💾 Opslaan</button>
+  </form>
 
-    <form id="profileForm">
-      <label>Gebruikersnaam</label>
-      <input type="text" id="username" required>
-
-      <label>E-mail</label>
-      <input type="email" id="email" required>
-
-      <label>Wachtwoord (nieuw, optioneel)</label>
-      <input type="password" id="password">
-
-      <label>Bio / Promotie</label>
-      <textarea id="bio" rows="4" placeholder="Vertel iets over jezelf, wat je streams uniek maakt..."></textarea>
-
-      <p id="roomSlugInfo" style="color:var(--muted);font-size:13px;margin:0;"></p>
-
-      <button id="saveBtn" type="submit">💾 Opslaan</button>
-    </form>
-
-    <h2 style="margin-top:40px;">📸 Profielfoto</h2>
-    <img id="avatarPreview" src="/default-avatar.png" alt="avatar"><br>
+  <section class="media">
+    <h3>📸 Profielfoto</h3>
+    <img id="avatarPreview" src="/default-avatar.png" alt="avatar" class="avatar">
     <input type="file" id="avatar" accept="image/*">
     <button id="uploadAvatarBtn">Uploaden</button>
 
-    <h2 style="margin-top:40px;">🖼️ Galerij / Promofoto's</h2>
+    <h3>🖼️ Galerij / Promofoto's</h3>
     <input type="file" id="gallery" accept="image/*" multiple>
     <button id="uploadGalleryBtn">Uploaden</button>
     <div class="gallery"></div>
-  </main>
+  </section>
+</main>
+
 
   <footer>
     Johka Live – Creator Instellingen ⚡
