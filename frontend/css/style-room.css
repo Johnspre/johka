@@ -104,7 +104,6 @@ main {
   background: var(--bg);
   padding: 10px;
   box-sizing: border-box;
-  height: 82vh;
   align-items: start;
 }
 
@@ -302,10 +301,9 @@ main {
   border-radius: 0 0 6px 6px;
   flex: 1;
   width: 100%;
-  min-height: 25%;
-  max-height: 25%;
+  min-height: 25vh;
   padding: 10px;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 /* ===== FOOTER ===== */
@@ -437,18 +435,19 @@ main {
   overflow-x: hidden !important;
 }
 
-/* Zorg dat input nooit te breed wordt */
-#chatForm input,
-#donationBar input {
-  max-width: 100% !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
 /* Buttons mogen niet duwen */
 #chatForm button,
 #donationBar button {
   flex-shrink: 0 !important;
+}
+/* ✅ Inputs mogen mee schalen zodat knoppen zichtbaar blijven */
+#chatForm input,
+#donationBar input {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 /* --- Force 12px space between camera (left) and chat (right) --- */
 main {
