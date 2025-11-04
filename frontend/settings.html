@@ -183,6 +183,7 @@
       if(res.ok){
         alert("✅ Profiel opgeslagen!");
         document.getElementById("password").value = "";
+        window.location.href = "/creatorpage.html";
       }else{
         alert("❌ Fout bij opslaan");
       }
@@ -255,7 +256,7 @@
   <main>
     <h2>⚙️ Mijn Profiel</h2>
 
-    <form id="profileForm"></form>
+    <form id="profileForm">
       <label>Gebruikersnaam</label>
       <input type="text" id="username" required>
 
