@@ -681,8 +681,31 @@ document.addEventListener("DOMContentLoaded", () => {
       bottomTabs.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
+      // 👤 Speciaal geval: Creator Bio laden in een iframe zodat scripts blijven werken
+      if (page === "creatorpage.html") {
+        const username = storedUsername || localStorage.getItem("username");
+        if (!username) {
+          bottomContent.innerHTML = `<p style="color:#e53935; text-align:center;">❌ Geen gebruiker gevonden voor bio.</p>`;
+          return;
+        }
+
+        const separator = page.includes("?") ? "&" : "?";
+        const iframeSrc = `${page}${separator}u=${encodeURIComponent(username)}&embed=1`;
+        bottomContent.innerHTML = `
+          <iframe
+            src="${iframeSrc}"
+            title="Creator bio"
+            style="width:100%;min-height:640px;border:0;background:transparent;"
+            loading="lazy"
+            allowtransparency="true"
+          ></iframe>
+        `;
+        return;
+      }
+
       try {
         // 🔧 Gebruik het pad letterlijk – geen automatische /pages/ meer
+        bottomContent.innerHTML = `<p style="color:#aaa;text-align:center;margin-top:20px;">Laden…</p>`;
         const res = await fetch(page);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const html = await res.text();

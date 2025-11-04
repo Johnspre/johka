@@ -19,6 +19,21 @@
       font-family: "Segoe UI", sans-serif;
     }
 
+    body.embedded {
+      background: transparent;
+    }
+
+    body.embedded header,
+    body.embedded footer {
+      display: none;
+    }
+
+    body.embedded main {
+      margin: 0 auto;
+      box-shadow: none;
+    }
+
+
     header {
       background: var(--bg-panel);
       padding: 12px 20px;
@@ -171,9 +186,16 @@
 
   <script>
     const API = "https://api.johka.be/api";
+    const params = new URLSearchParams(window.location.search);
+    const isEmbedded = params.has("embed");
+
+    if (isEmbedded) {
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.classList.add("embedded");
+      });
+    }
 
     async function loadCreator() {
-      const params = new URLSearchParams(window.location.search);
       const username = params.get("u");
       if (!username) {
         document.body.innerHTML = "<h2 style='text-align:center;color:white;margin-top:50px;'>❌ Geen gebruiker opgegeven</h2>";
