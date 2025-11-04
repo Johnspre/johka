@@ -181,8 +181,27 @@
         return;
       }
       if(res.ok){
+        let updatedUsername = body.username;
+        try {
+          const data = await res.json();
+          if (data && data.username) {
+            updatedUsername = data.username;
+          }
+        } catch (_) {
+          // Geen JSON of lege body teruggekregen – negeer fout.
+        }
+
+        if (updatedUsername) {
+          localStorage.setItem("username", updatedUsername);
+        }
+
         alert("✅ Profiel opgeslagen!");
         document.getElementById("password").value = "";
+        if (updatedUsername) {
+          window.location.href = `/creatorpage.html?u=${encodeURIComponent(updatedUsername)}`;
+        } else {
+          window.location.href = "/creatorpage.html";
+        }
         window.location.href = "/creatorpage.html";
       }else{
         alert("❌ Fout bij opslaan");
