@@ -144,6 +144,33 @@ async function loadRoomInfo() {
   }
 }
 
+// ======================================================
+// 🔽 Creator bio ophalen
+// ======================================================
+async function loadCreatorBio() {
+  try {
+    const username = requestedUsername || ""; // komt uit URL ?u=
+    if (!username) {
+      console.warn("Geen username in URL, kan bio niet laden");
+      return;
+    }
+
+    const res = await fetch(`${API}/creator/${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error("Kan creator info niet laden");
+    const data = await res.json();
+
+    const bioEl = document.getElementById("creatorBio");
+    const nameEl = document.getElementById("creatorName");
+    if (bioEl) bioEl.textContent = data.bio || "Geen bio beschikbaar.";
+    if (nameEl) nameEl.textContent = data.username || username;
+  } catch (err) {
+    console.error("❌ Fout bij ophalen bio:", err);
+    const bioEl = document.getElementById("creatorBio");
+    if (bioEl) bioEl.textContent = "❌ Bio kon niet geladen worden.";
+  }
+}
+
+
 async function fetchRoomInfoQuiet() {
   if (!requestedRoom) throw new Error("No room parameter");
   const res = await fetch(`${API}/rooms/${encodeURIComponent(requestedRoom)}`);
@@ -399,6 +426,8 @@ async function start() {
     logMessage("💬 Verbinden met stream...", "system");
   try {
     const info = await loadRoomInfo();
+    await loadCreatorBio();
+
     if (!info.is_live) {
       showOverlay("🔴 Deze creator is momenteel offline");
       logMessage("ℹ️ Deze stream is momenteel offline.", "system");
@@ -477,3 +506,64 @@ start();
   });
 })();
 
+// ======================================================
+// 🔽 JOHKA LIVE – Creator bio laden
+// ======================================================
+(async function loadCreatorBio() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get("u");
+    if (!username) {
+      console.warn("Geen 'u' parameter in URL, bio niet geladen");
+      return;
+    }
+
+    const url = `https://api.johka.be/api/creator/${encodeURIComponent(username)}`;
+    console.log("🌐 Ophalen creator info van:", url);
+
+    const res = await fetch(url);
+    console.log("📡 Status:", res.status);
+    if (!res.ok) throw new Error("Kon creator info niet laden");
+    const data = await res.json();
+    console.log("📦 Creator data:", data);
+
+    const nameEl = document.getElementById("creatorName");
+    const bioEl = document.getElementById("creatorBio");
+    if (nameEl) nameEl.textContent = data.username || username;
+    if (bioEl) bioEl.textContent = data.bio || "Geen bio beschikbaar.";
+  } catch (err) {
+    console.error("❌ Fout bij laden bio:", err);
+    const bioEl = document.getElementById("creatorBio");
+    if (bioEl) bioEl.textContent = "❌ Kon bio niet laden.";
+  }
+})();
+
+
+// ======================================================
+// 🔽 Creatorpage embedded laden (geïsoleerd via iframe)
+// ======================================================
+function loadEmbeddedCreatorPage() {
+  const params = new URLSearchParams(window.location.search);
+  const username = params.get("u");
+  if (!username) {
+    console.warn("Geen 'u' parameter – embed wordt overgeslagen");
+    return;
+  }
+
+  const box = document.getElementById("creatorContent");
+  if (!box) return;
+
+  // iframe gebruiken zodat de CSS van creatorpage.html je viewer niet breekt
+  const iframe = document.createElement("iframe");
+  iframe.src = `/creatorpage.html?u=${encodeURIComponent(username)}&embed=true`;
+  iframe.style.width = "100%";
+  iframe.style.border = "none";
+  iframe.style.display = "block";
+  iframe.style.minHeight = "900px"; // pas aan naar smaak
+
+  box.innerHTML = "";
+  box.appendChild(iframe);
+}
+
+// aanroepen zodra de pagina klaar is
+window.addEventListener("DOMContentLoaded", loadEmbeddedCreatorPage);
