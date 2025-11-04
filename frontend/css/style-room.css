@@ -731,7 +731,7 @@ main {
 /* 📦 Maak bovenste panelen groter */
 main {
   height: 88vh !important;  /* meer hoogte */
-  grid-template-columns: 42% 58% !important; /* camera breder, chat iets smaller */
+  grid-template-columns: minmax(0, 58%) minmax(0, 42%) !important; /* camera breder, chat smaller */
   align-items: stretch !important;
 }
 
@@ -759,7 +759,7 @@ main {
 main {
   height: calc(100vh - 140px) !important; /* navbar + status bar + padding */
   display: grid !important;
-  grid-template-columns: 40% 60% !important;
+  grid-template-columns: minmax(0, 58%) minmax(0, 42%) !important;
   grid-template-rows: 1fr !important; /* 1 flexible row */
   overflow: hidden !important;
   padding-bottom: 0 !important;
@@ -932,4 +932,20 @@ main {
 /* ✅ Prevent horizontal scroll anywhere */
 #sidebar, #chat, #chatTab {
   overflow-x: hidden !important;
+}
+/* --- Zorg dat actieknoppen zichtbaar blijven naast scrollbar --- */
+#chatTab {
+  padding-right: 12px !important; /* ruimte voor eventuele browser-scrollbar */
+  box-sizing: border-box;
+}
+
+#chatForm,
+#donationBar {
+  gap: 8px !important;
+}
+
+#chatForm button,
+#donationBar button {
+  margin-left: 0 !important;
+  white-space: nowrap;
 }
