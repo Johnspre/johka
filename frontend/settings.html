@@ -141,6 +141,9 @@
       document.getElementById("username").value = u.username;
       document.getElementById("email").value = u.email;
       document.getElementById("bio").value = u.bio || "";
+      if (u.username) {
+        localStorage.setItem("username", u.username);
+      }
       const roomInfo = document.getElementById("roomSlugInfo");
       if(roomInfo){
         if(u.room_slug){
@@ -191,12 +194,20 @@
           // Geen JSON of lege body teruggekregen – negeer fout.
         }
 
+        
+
         if (updatedUsername) {
           localStorage.setItem("username", updatedUsername);
         }
 
         alert("✅ Profiel opgeslagen!");
         document.getElementById("password").value = "";
+        const redirectUsername = updatedUsername || localStorage.getItem("username") || body.username;
+        if (redirectUsername) {
+          window.location.href = `/creatorpage.html?u=${encodeURIComponent(redirectUsername)}`;
+        } else {
+          window.location.href = "/creatorpage.html";
+        }
         if (updatedUsername) {
           window.location.href = `/creatorpage.html?u=${encodeURIComponent(updatedUsername)}`;
         } else {

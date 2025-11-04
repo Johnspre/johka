@@ -187,6 +187,8 @@
   <script>
     const API = "https://api.johka.be/api";
     const params = new URLSearchParams(window.location.search);
+    const storedUsername = localStorage.getItem("username");
+    const activeUsername = params.get("u") || storedUsername || "";
     const isEmbedded = params.has("embed");
 
     if (isEmbedded) {
@@ -196,7 +198,7 @@
     }
 
     async function loadCreator() {
-      const username = params.get("u");
+      const username = activeUsername;
       if (!username) {
         document.body.innerHTML = "<h2 style='text-align:center;color:white;margin-top:50px;'>❌ Geen gebruiker opgegeven</h2>";
         return;
@@ -249,8 +251,7 @@
       if(amount <= 0) return alert("Ongeldig bedrag");
       const token = localStorage.getItem("token");
       if(!token) return alert("Je moet ingelogd zijn om te tippen.");
-      const params = new URLSearchParams(window.location.search);
-      const username = params.get("u");
+      const username = activeUsername;
       const res = await fetch(`${API}/tip`, {
         method:"POST",
         headers:{
@@ -265,7 +266,10 @@
 
     window.addEventListener("DOMContentLoaded", loadCreator);
     window.addEventListener("DOMContentLoaded", ()=>{
-      document.getElementById("tipBtn").addEventListener("click", sendTip);
+      const tipBtn = document.getElementById("tipBtn");
+      if (tipBtn) {
+        tipBtn.addEventListener("click", sendTip);
+      }
     });
   </script>
 </head>
