@@ -130,9 +130,30 @@
       const res = await fetch(API + "/me", {
         headers:{Authorization:"Bearer "+token}
       });
+      if(res.status === 401){
+        return logout();
+      }
+      if(!res.ok){
+        alert("❌ Kon profielgegevens niet laden.");
+        return;
+      }
       const u = await res.json();
       document.getElementById("username").value = u.username;
       document.getElementById("email").value = u.email;
+      document.getElementById("bio").value = u.bio || "";
+      const roomInfo = document.getElementById("roomSlugInfo");
+      if(roomInfo){
+        if(u.room_slug){
+          const roomUrl = `https://johka.be/room/${u.room_slug}`;
+          roomInfo.innerHTML = "📡 Jouw kamer is bereikbaar via <a href=\"" +
+            roomUrl +
+            "\" target=\"_blank\" rel=\"noopener\">" +
+            roomUrl +
+            "</a>";
+        }else{
+          roomInfo.textContent = "Er is nog geen kamer gekoppeld aan je account.";
+        }
+      }
     }
 
     async function saveProfile(e){
@@ -143,6 +164,10 @@
         email: document.getElementById("email").value.trim(),
         bio: document.getElementById("bio").value.trim()
       };
+      const password = document.getElementById("password").value.trim();
+      if(password){
+        body.password = password;
+      }
       const res = await fetch(API + "/me/update", {
         method:"POST",
         headers:{
@@ -151,8 +176,13 @@
         },
         body: JSON.stringify(body)
       });
+      if(res.status === 401){
+        logout();
+        return;
+      }
       if(res.ok){
         alert("✅ Profiel opgeslagen!");
+        document.getElementById("password").value = "";
       }else{
         alert("❌ Fout bij opslaan");
       }
@@ -203,7 +233,7 @@
 
     window.addEventListener("DOMContentLoaded", ()=>{
       loadProfile();
-      document.getElementById("saveBtn").addEventListener("click", saveProfile);
+      document.getElementById("profileForm").addEventListener("submit", saveProfile);
       document.getElementById("uploadAvatarBtn").addEventListener("click", uploadAvatar);
       document.getElementById("uploadGalleryBtn").addEventListener("click", uploadGallery);
       document.getElementById("logoutBtn").addEventListener("click", logout);
@@ -225,7 +255,7 @@
   <main>
     <h2>⚙️ Mijn Profiel</h2>
 
-    <form>
+    <form id="profileForm"></form>
       <label>Gebruikersnaam</label>
       <input type="text" id="username" required>
 
@@ -237,6 +267,8 @@
 
       <label>Bio / Promotie</label>
       <textarea id="bio" rows="4" placeholder="Vertel iets over jezelf, wat je streams uniek maakt..."></textarea>
+
+      <p id="roomSlugInfo" style="color:var(--muted);font-size:13px;margin:0;"></p>
 
       <button id="saveBtn" type="submit">💾 Opslaan</button>
     </form>

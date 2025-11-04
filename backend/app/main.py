@@ -26,7 +26,7 @@ from starlette.responses import JSONResponse
 import psycopg2
 from sqlalchemy import (
     create_engine, Column, Integer, String, DateTime, func,
-    ForeignKey, UniqueConstraint, text, or_
+    ForeignKey, UniqueConstraint, text, or_, Text,
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 from sqlalchemy.exc import IntegrityError
@@ -132,7 +132,8 @@ class UserDB(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    # dynamic columns (avatar_url, bio, gallery_json, wallet_balance) kunnen later via ALTER worden toegevoegd
+    bio = Column(Text, nullable=True, default="")
+    # dynamic columns (avatar_url, gallery_json, wallet_balance) kunnen later via ALTER worden toegevoegd
     room = relationship("RoomDB", back_populates="owner", uselist=False)
     wallet = relationship("Wallet", back_populates="owner", uselist=False)
 
@@ -186,6 +187,8 @@ class MeOut(BaseModel):
     id: int
     username: str
     email: EmailStr
+    bio: Optional[str] = ""
+    room_slug: Optional[str] = None
 
 
 class RoomOut(BaseModel):
@@ -287,6 +290,11 @@ def on_startup():
     Base.metadata.create_all(engine)
     # Zorg dat iedereen een wallet heeft
     with SessionLocal() as s:
+        try:
+            s.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT"))
+            s.commit()
+        except Exception:
+            s.rollback()
         users = s.query(UserDB).all()
         for u in users:
             if not u.wallet:
@@ -326,7 +334,13 @@ def register(payload: RegisterIn, s: Session = Depends(db)):
     r = RoomDB(user_id=u.id, name=f"{u.username}'s room", slug=slug)
     s.add(r)
     s.commit()
-    return MeOut(id=u.id, username=u.username, email=u.email)
+    return MeOut(
+        id=u.id,
+        username=u.username,
+        email=u.email,
+        bio=u.bio or "",
+        room_slug=r.slug,
+    )
 
 
 @app.post("/api/login")
@@ -340,7 +354,14 @@ def login(payload: LoginIn, s: Session = Depends(db)):
 
 @app.get("/api/me", response_model=MeOut)
 def me(user: UserDB = Depends(get_current_user)):
-    return MeOut(id=user.id, username=user.username, email=user.email)
+    room_slug = user.room.slug if user.room else None
+    return MeOut(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        bio=user.bio or "",
+        room_slug=room_slug,
+    )
 
 
 @app.get("/api/rooms", response_model=List[RoomOut])
@@ -738,7 +759,7 @@ def update_profile(
         u.password_hash = hash_password(data["password"])
     if "bio" in data:
         ensure_column("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT")
-        setattr(u, "bio", data["bio"])
+        u.bio = (data["bio"] or "").strip()
 
     s.commit()
     return {"status": "ok", "message": "Profile updated"}
