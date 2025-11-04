@@ -682,16 +682,19 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.classList.add("active");
 
       try {
-        const res = await fetch(`/pages/${page}`);
-        if (!res.ok) throw new Error(res.statusText);
+        // 🔧 Gebruik het pad letterlijk – geen automatische /pages/ meer
+        const res = await fetch(page);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const html = await res.text();
         bottomContent.innerHTML = html;
       } catch (err) {
+        console.error("❌ Fout bij laden:", err);
         bottomContent.innerHTML = `<p style="color:#e53935;">❌ Fout bij laden: ${err.message}</p>`;
       }
     });
   });
 });
+
 
 
 // === EMOJI PICKER ===
