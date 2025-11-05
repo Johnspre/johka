@@ -958,3 +958,35 @@ main {
   margin-left: 0 !important;
   white-space: nowrap;
 }
+.chat-message.tip {
+  background: #fff3cd;       /* zachte gele kleur */
+  border-left: 4px solid #ffb703;
+  color: #444;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 4px 0;
+  font-weight: 600;
+}
+/* 💸 Tipbericht zichtbaar maken, ook op mobiel */
+#chat .tip,
+#chatTab .tip,
+.chat-message.tip {
+  background: #fff3cd !important;    /* lichte gele achtergrond */
+  border-left: 4px solid #ffb703 !important;
+  color: #333 !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  margin: 4px 0 !important;
+  font-weight: 600 !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+/* 📱 Mobiel: tekst iets kleiner */
+@media (max-width: 768px) {
+  #chat .tip,
+  #chatTab .tip {
+    font-size: 14px;
+    padding: 6px 8px;
+  }
+}

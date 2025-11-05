@@ -643,3 +643,12 @@ footer {
 #donateBtn:hover {
   background: #ff9833;         /* iets lichtere tint bij hover */
 }
+.chat-message.tip {
+  background: #fff3cd;       /* zachte gele kleur */
+  border-left: 4px solid #ffb703;
+  color: #444;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 4px 0;
+  font-weight: 600;
+}

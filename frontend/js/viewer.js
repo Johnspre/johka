@@ -26,6 +26,8 @@ const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatNotice = document.getElementById("chatNotice");
 const emojiBtn = document.getElementById("viewerEmojiBtn");
+const donateBtn = document.getElementById("donateBtn");
+const donateInput = document.getElementById("donateInput");
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -277,7 +279,8 @@ function handleIncomingData(payload, participant) {
     } else if (decoded.type === "tip") {
       const sender = decoded.sender || participant?.identity || "onbekend";
       const amount = decoded.amount ?? "?";
-      logMessage(`💸 ${sender} tipte ${amount} tokens!`, "tip");
+      const recipient = decoded.recipient || "de creator";
+      logMessage(`💸 ${sender} tipte ${amount} tokens aan ${recipient}!`, "tip");
     }
   } catch (err) {
     console.warn("Data parse fout", err);
@@ -399,6 +402,90 @@ async function sendChatMessage() {
     logMessage(`❌ Bericht niet verzonden (${err.message})`, "system");
   }
 }
+
+async function submitTip(amount, toUser) {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    alert("Je moet ingelogd zijn om te tippen.");
+    return;
+  }
+
+  try {
+    const res = await fetch("https://api.johka.be/api/tip", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ to_username: toUser, amount }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(errText || res.status);
+    }
+
+    logMessage(`💸 Jij tipte ${amount} tokens aan ${toUser}!`, "tip");
+
+    if (lkRoom?.state === "connected" && lkRoom.localParticipant) {
+      const payload = {
+        type: "tip",
+        amount,
+        recipient: toUser,
+        sender:
+          lkRoom.localParticipant.identity ||
+          localStorage.getItem("username") ||
+          "ik",
+      };
+
+      try {
+        await lkRoom.localParticipant.publishData(
+          encoder.encode(JSON.stringify(payload)),
+          DataPacket_Kind.RELIABLE,
+        );
+      } catch (err) {
+        console.warn("Tip broadcast mislukt", err);
+      }
+    } else {
+      console.warn("Tip niet verzonden via LiveKit – niet verbonden");
+    }
+
+    alert(`💸 ${amount} tokens getipt!`);
+  } catch (err) {
+    console.error("Tip mislukt", err);
+    alert(`❌ Tip mislukt: ${err.message}`);
+  }
+}
+
+function setupDonationControls() {
+  if (!donateBtn || !donateInput) return;
+
+  if (!donateInput.value) {
+    donateInput.value = "10";
+  }
+
+  donateBtn.addEventListener("click", async (event) => {
+    event.preventDefault();
+    const raw = (donateInput.value || "").toString().trim();
+    const amount = Number(raw);
+
+    if (!Number.isFinite(amount) || amount < 1) {
+      alert("Vul een geldig aantal tokens in (bv. 5).");
+      donateInput.focus();
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const toUser = params.get("u");
+
+    if (!toUser) {
+      alert("Geen streamer gevonden om te tippen.");
+      return;
+    }
+
+    await submitTip(amount, toUser);
+  });
+}
 // ✅ Toon naam & tokens in topbar als user ingelogd is
 function initViewerTopbar() {
   try {
@@ -418,6 +505,7 @@ function initViewerTopbar() {
 
 // 🔥 Run direct
 initViewerTopbar();
+setupDonationControls();
 
 
 
