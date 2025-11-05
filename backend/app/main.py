@@ -103,6 +103,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # 👈 belangrijk: laat JS de response lezen
 )
 
 # ============================================

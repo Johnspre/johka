@@ -605,5 +605,41 @@ footer {
     margin-top: 8px;
   }
 }
+/* 💸 Tipbalk - zelfde stijl als chatbalk */
+#donationBar {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
 
+#donateInput {
+  flex: 1;
+  background: #fff;            /* zelfde wit als chatveld */
+  color: #333;                 /* neutrale tekstkleur */
+  border: 1px solid #ccc;      /* subtiele grijze rand */
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 15px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
 
+#donateInput:focus {
+  outline: none;
+  border-color: #ff7a00;       /* lichte oranje highlight bij focus */
+}
+
+#donateBtn {
+  background: #ff7a00;         /* oranje johka kleur */
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+}
+
+#donateBtn:hover {
+  background: #ff9833;         /* iets lichtere tint bij hover */
+}
