@@ -675,6 +675,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const bottomContent = document.getElementById("bottomContent");
   if (!bottomTabs.length || !bottomContent) return;
 
+  let cleanupBioIframe = null;
+
   bottomTabs.forEach(btn => {
     btn.addEventListener("click", async () => {
       const page = btn.dataset.page;
@@ -683,6 +685,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 👤 Speciaal geval: Creator Bio laden in een iframe zodat scripts blijven werken
       if (page === "creatorpage.html") {
+        if (typeof cleanupBioIframe === "function") {
+          cleanupBioIframe();
+          cleanupBioIframe = null;
+        }
         const username = storedUsername || localStorage.getItem("username");
         if (!username) {
           bottomContent.innerHTML = `<p style="color:#e53935; text-align:center;">❌ Geen gebruiker gevonden voor bio.</p>`;
@@ -695,13 +701,91 @@ document.addEventListener("DOMContentLoaded", () => {
           <iframe
             src="${iframeSrc}"
             title="Creator bio"
-            style="width:100%;min-height:640px;border:0;background:transparent;"
+            style="width:100%;min-height:640px;border:0;background:transparent;display:block;"
             loading="lazy"
             allowtransparency="true"
           ></iframe>
         `;
+        const iframe = bottomContent.querySelector("iframe");
+        if (iframe) {
+          const adjustIframeHeight = () => {
+            try {
+              const doc = iframe.contentDocument || iframe.contentWindow?.document;
+              if (!doc) return;
+              const { body, documentElement } = doc;
+              const candidateHeights = [
+                body?.scrollHeight,
+                body?.offsetHeight,
+                documentElement?.scrollHeight,
+                documentElement?.offsetHeight,
+              ].filter(Boolean);
+              const nextHeight = Math.max(...candidateHeights, 640);
+              if (Number.isFinite(nextHeight)) {
+                iframe.style.height = `${nextHeight}px`;
+              }
+            } catch (err) {
+              console.warn("iframe resize mislukt", err);
+            }
+          };
+
+          const cleanupObservers = () => {
+            if (iframe.__bioResizeObserver) {
+              iframe.__bioResizeObserver.disconnect();
+              delete iframe.__bioResizeObserver;
+            }
+            if (iframe.__bioMutationObserver) {
+              iframe.__bioMutationObserver.disconnect();
+              delete iframe.__bioMutationObserver;
+            }
+            if (iframe.__bioWindowResizeHandler) {
+              window.removeEventListener("resize", iframe.__bioWindowResizeHandler);
+              delete iframe.__bioWindowResizeHandler;
+            }
+          };
+
+          cleanupObservers();
+
+          iframe.addEventListener("load", () => {
+            adjustIframeHeight();
+            try {
+              const doc = iframe.contentDocument;
+              if (!doc || !doc.body) return;
+
+              if (typeof ResizeObserver !== "undefined") {
+                const resizeObserver = new ResizeObserver(() => adjustIframeHeight());
+                resizeObserver.observe(doc.documentElement);
+                resizeObserver.observe(doc.body);
+                iframe.__bioResizeObserver = resizeObserver;
+              }
+
+              if (typeof MutationObserver !== "undefined") {
+                const mutationObserver = new MutationObserver(() => adjustIframeHeight());
+                mutationObserver.observe(doc.documentElement, {
+                  childList: true,
+                  subtree: true,
+                  attributes: true,
+                  characterData: true,
+                });
+                iframe.__bioMutationObserver = mutationObserver;
+              }
+            } catch (err) {
+              console.warn("Observer setup voor bio-iframe mislukt", err);
+            }
+          }, { once: true });
+
+          const onWindowResize = () => adjustIframeHeight();
+          iframe.__bioWindowResizeHandler = onWindowResize;
+          window.addEventListener("resize", onWindowResize, { passive: true });
+          cleanupBioIframe = cleanupObservers;
+        }
         return;
       }
+
+      if (typeof cleanupBioIframe === "function") {
+        cleanupBioIframe();
+        cleanupBioIframe = null;
+      }
+
 
       try {
         // 🔧 Gebruik het pad letterlijk – geen automatische /pages/ meer

@@ -803,6 +803,15 @@ main {
 #bottomContent {
   height: auto !important;
   max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+#bottomContent iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
 }
 
 /* Zorg dat er ruimte onderaan is */
