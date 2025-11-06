@@ -121,7 +121,7 @@
   <button data-page="games.html">Games</button>
   <button data-page="creatorpage.html">Bio</button>
   <button data-page="settings.html">Settings</button>
-  <button data-page="tokens.html">Token Stats</button>
+  <button data-page="wallet.html">Token Stats</button>
   <button data-page="share.html">Share</button>
   <button data-page="memberships.html">Memberships</button>
 </div>
@@ -175,6 +175,40 @@
   <script type="module" src="/js/room.js" defer></script>
 
 
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return; // niet ingelogd → niets doen
+
+  try {
+    const res = await fetch("https://api.johka.be/api/wallet", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+
+    setInterval(async () => {
+  try {
+    const res = await fetch("https://api.johka.be/api/wallet", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+    const data = await res.json();
+    if (document.getElementById("tipTotalBar")) {
+      document.getElementById("tipTotalBar").textContent = data.balance ?? 0;
+    }
+  } catch {}
+}, 60000);
+
+
+    if (!res.ok) throw new Error("API fout");
+    const data = await res.json();
+
+    // 💰 Toon walletsaldo in statusbalk
+    const tipBar = document.getElementById("tipTotalBar");
+    if (tipBar) tipBar.textContent = data.balance ?? 0;
+  } catch (err) {
+    console.warn("Kon walletsaldo niet ophalen:", err);
+  }
+});
+</script>
 
 </body>
 </html>

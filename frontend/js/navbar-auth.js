@@ -30,12 +30,28 @@ if (!token || tokenExpired()) {
   profileBtn.textContent = `👤 ${username} ▾`;
   content.innerHTML = `
     <p><strong>Status:</strong> Basic Member</p>
-    <p><strong>Tokens:</strong> 0</p>
+    <p id="tokenLine"><strong>Tokens:</strong> Laden...</p>
+    <a href="/wallet.html" style="color:#ff7a00;font-weight:bold;">Get more ➕</a>
     <hr>
     <a href="/profile.html">My Profile</a>
     <a href="#" onclick="logout();return false;" style="color:#ff7300;">Log Out</a>
   `;
+
+  // 🪙 Saldo ophalen en tonen
+  fetch("https://api.johka.be/api/wallet", {
+    headers: { Authorization: "Bearer " + token }
+  })
+    .then(r => r.json())
+    .then(data => {
+      const balance = data.balance ?? 0;
+      const tokenLine = document.getElementById("tokenLine");
+      if (tokenLine) tokenLine.innerHTML = `<strong>Tokens:</strong> ${balance}`;
+    })
+    .catch(err => {
+      console.warn("Kon wallet niet ophalen:", err);
+    });
 }
+
 
 function logout() {
   localStorage.removeItem("username");
@@ -52,3 +68,16 @@ document.getElementById("broadcastBtn")
       location.href = "/room.html";
     }
   });
+
+  setInterval(() => {
+  if (!tokenExpired()) {
+    fetch("https://api.johka.be/api/wallet", {
+      headers: { Authorization: "Bearer " + token }
+    })
+      .then(r => r.json())
+      .then(data => {
+        const tokenLine = document.getElementById("tokenLine");
+        if (tokenLine) tokenLine.innerHTML = `<strong>Tokens:</strong> ${data.balance ?? 0}`;
+      });
+  }
+}, 60000);

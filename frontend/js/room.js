@@ -810,6 +810,7 @@ async function refreshLiveKitTokenAndReconnect() {
 }
 
 
+
 // ========== STARTUP ==========
 window.addEventListener("beforeunload", () => {
   if (isLive && authToken) {
