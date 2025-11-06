@@ -1126,6 +1126,68 @@ def schedule_cleanup():
 
 schedule_cleanup()
 
+from mollie.api.client import Client
+
+@app.post("/api/wallet/create-payment")
+def create_payment(data: dict, user: UserDB = Depends(get_current_user)):
+    """Maak een nieuwe Mollie-betaling aan en bewaar die tijdelijk."""
+    try:
+        mollie = Client()
+        mollie.set_api_key(os.getenv("MOLLIE_API_KEY"))
+
+        amount = data.get("amount", 0)
+        if amount < 1:
+            raise HTTPException(400, "Ongeldig bedrag")
+
+        # Maak betaling aan bij Mollie
+        payment = mollie.payments.create({
+            "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
+            "description": f"Opwaarderen Johka Wallet ({user.username})",
+            "redirectUrl": f"https://live.johka.be/wallet.html?success=1",
+            "webhookUrl": f"https://api.johka.be/api/wallet/webhook",
+            "metadata": {"user_id": user.id}
+        })
+
+        return {"payment_id": payment.id, "checkout_url": payment.checkout_url}
+    except Exception as e:
+        raise HTTPException(500, f"Betaling aanmaken mislukt: {e}")
+
+@app.post("/api/wallet/webhook")
+async def mollie_webhook(request: Request, s: Session = Depends(db)):
+    """Webhook die Mollie aanroept bij statuswijziging (paid, failed, etc.)"""
+    from mollie.api.client import Client
+    import os
+
+    mollie = Client()
+    mollie.set_api_key(os.getenv("MOLLIE_API_KEY"))
+
+    data = await request.form()
+    payment_id = data.get("id")
+
+    if not payment_id:
+        print("❌ Geen payment_id in webhook ontvangen")
+        return {"status": "ignored"}
+
+    try:
+        payment = mollie.payments.get(payment_id)
+    except Exception as e:
+        print(f"❌ Fout bij ophalen Mollie betaling: {e}")
+        return {"status": "error"}
+
+    if payment.is_paid():
+        user_id = payment.metadata.get("user_id")
+        if user_id:
+            wallet = s.query(Wallet).filter_by(user_id=user_id).first()
+            if wallet:
+                wallet.balance += float(payment.amount["value"]) * 10  # 💰 1 EUR = 10 tokens
+                s.commit()
+                print(f"✅ Mollie betaling voltooid voor user {user_id}")
+        else:
+            print("⚠️ Geen user_id in metadata gevonden")
+    else:
+        print(f"❌ Mollie status: {payment.status}")
+
+    return {"status": "ok"}
 
 # =============================================
 # 🩺 HEALTHCHECK ENDPOINT

@@ -12,6 +12,8 @@ bcrypt==4.0.1
 Pillow
 python-jose
 livekit-api==1.0.7
+mollie-api-python
+
 
 
 

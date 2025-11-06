@@ -87,6 +87,29 @@
   <script>
     const API = "https://api.johka.be/api";
 
+    // ✅ Toon melding als gebruiker terugkeert van Mollie
+const params = new URLSearchParams(window.location.search);
+if (params.get("success") === "1") {
+  const banner = document.createElement("div");
+  banner.textContent = "✅ Betaling geslaagd! Je wallet is bijgewerkt.";
+  banner.style = `
+    background:#eaffea;
+    color:#1e7e34;
+    border:1px solid #b8e0b8;
+    border-radius:8px;
+    padding:10px 16px;
+    font-weight:600;
+    text-align:center;
+    margin-bottom:15px;
+  `;
+  document.body.prepend(banner);
+  // verwijder de parameter uit de URL na 3 sec
+  setTimeout(() => {
+    history.replaceState(null, "", window.location.pathname);
+  }, 3000);
+}
+
+
     async function fetchWallet(){
       const token = localStorage.getItem("token");
       if(!token) return location.href="/login.html";
@@ -118,17 +141,38 @@
       }
     }
 
-    async function topup(){
-      const token = localStorage.getItem("token");
-      const amount = prompt("Hoeveel tokens opwaarderen?", "100");
-      if(!amount) return;
-      const res = await fetch(API + "/wallet/topup?amount=" + amount, {
-        method:"POST", headers:{Authorization:"Bearer "+token}
-      });
-      const data = await res.json();
-      alert("Wallet +"+amount+" tokens!");
-      document.getElementById("balance").textContent = data.balance;
+    async function topup() {
+  const token = localStorage.getItem("token");
+  if (!token) return alert("Je moet ingelogd zijn.");
+
+  const euro = prompt("Hoeveel EURO wil je opwaarderen?", "5");
+  const amount = parseFloat(euro);
+  if (!amount || amount <= 0) return alert("Ongeldig bedrag.");
+
+  try {
+    const res = await fetch(`${API}/wallet/create-payment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+      },
+      body: JSON.stringify({ amount }),
+    });
+
+    const data = await res.json();
+    if (data.checkout_url) {
+      // 👉 Stuur gebruiker naar Mollie-betaalscherm
+      window.location.href = data.checkout_url;
+    } else {
+      alert("❌ Fout bij starten betaling");
+      console.error(data);
     }
+  } catch (err) {
+    alert("❌ Netwerkfout bij betaling");
+    console.error(err);
+  }
+}
+
 
     window.addEventListener("DOMContentLoaded", ()=>{
       fetchWallet();
