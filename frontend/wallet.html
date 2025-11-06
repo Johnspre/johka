@@ -95,11 +95,20 @@ if (params.get("success") === "1") {
 }
 
 
-    window.addEventListener("DOMContentLoaded", ()=>{
+    const initWalletPage = () => {
       fetchWallet();
       fetchTips();
-      document.getElementById("topupBtn").addEventListener("click", topup);
-    });
+      const topupBtn = document.getElementById("topupBtn");
+      if (topupBtn) {
+        topupBtn.addEventListener("click", topup, { once: false });
+      }
+    };
+
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", initWalletPage, { once: true });
+    } else {
+      initWalletPage();
+    }
   </script>
 </head>
 <body>

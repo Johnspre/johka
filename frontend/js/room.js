@@ -947,7 +947,47 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch(page);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const html = await res.text();
-        bottomContent.innerHTML = html;
+        const renderFetchedHtml = (target, markup) => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(markup, "text/html");
+
+          const scriptsInOrder = [];
+          const appendNodes = nodes => {
+            nodes.forEach(node => {
+              if (node.nodeName === "SCRIPT") {
+                scriptsInOrder.push(node);
+              } else {
+                target.appendChild(node.cloneNode(true));
+              }
+            });
+          };
+
+          target.innerHTML = "";
+          appendNodes(Array.from(doc.body?.childNodes || []));
+
+          if (!target.childNodes.length) {
+            const main = doc.querySelector("main") || doc.documentElement;
+            if (main) {
+              appendNodes(Array.from(main.childNodes));
+            }
+          }
+
+          const headScripts = Array.from(doc.head?.querySelectorAll("script") || []);
+          scriptsInOrder.unshift(...headScripts);
+
+          scriptsInOrder.forEach(original => {
+            const script = document.createElement("script");
+            Array.from(original.attributes || []).forEach(attr => {
+              script.setAttribute(attr.name, attr.value);
+            });
+            if (original.textContent) {
+              script.textContent = original.textContent;
+            }
+            target.appendChild(script);
+          });
+        };
+
+        renderFetchedHtml(bottomContent, html);
       } catch (err) {
         console.error("❌ Fout bij laden:", err);
         bottomContent.innerHTML = `<p style="color:#e53935;">❌ Fout bij laden: ${err.message}</p>`;
