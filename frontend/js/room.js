@@ -33,6 +33,10 @@ let livekitRoomName = null;
 let liveRoomSlug = null;
 let authToken = null;
 let storedUsername = null;
+
+// Globale LiveKit room referentie (kan door andere blokken gebruikt worden)
+window.lkRoom = window.lkRoom || null;
+
 // ========== STATUSBALK ==========
 function updateStatusBar(text, color = "#ccc") {
   const status = el("status");
@@ -179,6 +183,28 @@ async function init() {
     .on(RoomEvent.Disconnected, handleDisconnect); // ⬅️ één centrale handler
 
   await connectLiveKit(lkToken);
+
+  // Globale LiveKit-referentie voor andere modules
+window.lkRoom = room;
+Johka.updateViewerList?.();
+
+window.lkRoom
+  .on(RoomEvent.ParticipantConnected, (p) => {
+    console.log("👤 Joined:", p.identity);
+    Johka.updateViewerList?.();
+  })
+  .on(RoomEvent.ParticipantDisconnected, (p) => {
+    console.log("👋 Left:", p.identity);
+    Johka.updateViewerList?.();
+  });
+
+// Extra failsafe: refresh 1 seconde na init
+setTimeout(() => Johka.updateViewerList?.(), 1000);
+
+window.lkRoom
+  .on(RoomEvent.ParticipantConnected, () => Johka.updateViewerList?.())
+  .on(RoomEvent.ParticipantDisconnected, () => Johka.updateViewerList?.());
+
 
   // ---------- BUTTONS ----------
   el("goLive")?.addEventListener("click", startAV);
@@ -558,6 +584,7 @@ async function startAV() {
   }
 }
 
+
 // ===================== LEAVE ROOM =====================
 async function leaveRoom() {
   isLeaving = true; // ⬅️ intentional leave
@@ -828,3 +855,56 @@ document.addEventListener("DOMContentLoaded", () => {
     input.focus();
   });
 })();
+
+// ================================
+// 👥 JOHKA - ViewerList (safe scope)
+// ================================
+window.Johka = window.Johka || {};
+
+Johka.updateViewerList = function () {
+  try {
+    const r = window.lkRoom;
+    if (!r) return; // nog niet verbonden
+
+    const ul = document.getElementById("userList");
+    const anon = document.getElementById("anonCount");
+    if (!ul) return;
+
+    // LiveKit participants (excl. local of incl. — kies wat je wil)
+    const parts = Array.from(r.participants?.values?.() || []);
+    // Wil je de streamer (local) bovenaan tonen?
+    if (r.localParticipant) parts.unshift(r.localParticipant);
+
+    ul.innerHTML = "";
+
+    parts.forEach(p => {
+      const meta = p.metadata ? JSON.parse(p.metadata || "{}") : {};
+      const v = {
+        name: p.identity || meta.username || "guest",
+        isAnonymous: !!meta.isAnonymous,
+        gender: meta.gender || null,
+      };
+
+      const li = document.createElement("li");
+      let icon = "/img/male-icon.png";
+      if (v.gender === "female") icon = "/img/female-icon.png";
+      if (v.isAnonymous) icon = "/img/anon-icon.png";
+
+      li.innerHTML = `
+        <img src="${icon}" width="22" height="22" style="margin-right:6px;">
+        <span class="username">${v.name}</span>
+      `;
+      ul.appendChild(li);
+    });
+
+    const anonCount = parts.filter(p => {
+      const meta = p.metadata ? JSON.parse(p.metadata || "{}") : {};
+      return !!meta.isAnonymous;
+    }).length;
+
+    if (anon) anon.textContent = `+${anonCount} anonymous users`;
+  } catch (err) {
+    console.error("ViewerList update failed:", err);
+  }
+};
+
