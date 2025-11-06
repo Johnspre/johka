@@ -1093,6 +1093,49 @@ async def live_active():
         return []
     return [k.split(":")[1] for k in keys]
 
+# =============================================
+#  Laatste stukje van je main.py
+# =============================================
+
+# 🧹 Cleanup functie voor oude previews
+import threading, time
+from pathlib import Path
+
+def cleanup_previews(folder="/app/static/uploads/previews", max_age_hours=6):
+    now = time.time()
+    limit = max_age_hours * 3600
+    deleted = 0
+
+    for file in Path(folder).glob("*.jpg"):
+        try:
+            if now - file.stat().st_mtime > limit:
+                file.unlink()
+                deleted += 1
+        except Exception as e:
+            print(f"❌ Fout bij verwijderen {file}: {e}")
+
+    if deleted:
+        print(f"🧹 {deleted} oude preview(s) verwijderd uit {folder}")
+
+def schedule_cleanup():
+    cleanup_previews()
+    threading.Timer(3600, schedule_cleanup).start()  # elk uur herhalen
+
+schedule_cleanup()
+
+
+# =============================================
+# 🩺 HEALTHCHECK ENDPOINT
+# =============================================
+
+@app.get("/health")
+def health_check():
+    """
+    Eenvoudige healthcheck voor Docker / load balancer.
+    Geeft altijd status 200 OK terug.
+    """
+    return {"status": "ok", "service": "johka-backend"}
+
 
 # ============================================
 # END
