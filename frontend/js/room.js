@@ -17,7 +17,7 @@ const DEFAULT_LIVEKIT_URL = "wss://live.johka.be";
 const el = (id) => document.getElementById(id);
 let room;
 let localTracks = [];
-let viewers = new Set();
+const rosterByKey = new Map();
 let reconnectAttempts = 0;
 let reconnectTimer = null;
 let micEnabled = true;
@@ -33,6 +33,122 @@ let livekitRoomName = null;
 let liveRoomSlug = null;
 let authToken = null;
 let storedUsername = null;
+
+function getParticipantKey(participant) {
+  if (!participant) return null;
+  if (participant.sid) return participant.sid;
+  if (participant.identity) return `id:${participant.identity}`;
+  if (!participant.__johkaRosterKey) {
+    participant.__johkaRosterKey = `tmp-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return participant.__johkaRosterKey;
+}
+
+function parseParticipantMetadata(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn("Kon participant metadata niet parsen:", err);
+    return {};
+  }
+}
+
+function buildRosterEntry(participant) {
+  if (!participant) return null;
+  const meta = parseParticipantMetadata(participant.metadata);
+  const identity = typeof participant.identity === "string" ? participant.identity.trim() : "";
+  const username = typeof meta.username === "string" ? meta.username.trim() : "";
+  const gender = typeof meta.gender === "string" ? meta.gender.toLowerCase() : null;
+  const name = username || identity || "guest";
+  const isLocal = Boolean(participant.isLocal ?? participant === room?.localParticipant);
+  return {
+    key: getParticipantKey(participant),
+    name,
+    isAnonymous: Boolean(meta.isAnonymous),
+    gender,
+    isLocal,
+  };
+}
+
+function trackParticipant(participant) {
+  const entry = buildRosterEntry(participant);
+  if (!entry || !entry.key) return entry;
+  rosterByKey.set(entry.key, entry);
+  return entry;
+}
+
+function removeParticipantFromRoster(participant) {
+  const key = getParticipantKey(participant);
+  if (!key) return;
+  rosterByKey.delete(key);
+}
+
+function getParticipantDisplayName(participant) {
+  const key = getParticipantKey(participant);
+  const stored = key ? rosterByKey.get(key) : null;
+  if (stored?.name) return stored.name;
+  const meta = parseParticipantMetadata(participant?.metadata);
+  const identity = typeof participant?.identity === "string" ? participant.identity.trim() : "";
+  const username = typeof meta.username === "string" ? meta.username.trim() : "";
+  return username || identity || "viewer";
+}
+
+function updateViewerList() {
+  const entries = Array.from(rosterByKey.values());
+  entries.sort((a, b) => {
+    if (a.isLocal !== b.isLocal) return a.isLocal ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "accent", numeric: true });
+  });
+
+  const viewCountEl = el("viewCount");
+  if (viewCountEl) {
+    const viewerCount = entries.filter((entry) => !entry.isLocal).length;
+    viewCountEl.textContent = viewerCount.toString();
+  }
+
+  const userList = el("userList");
+  if (userList) {
+    userList.innerHTML = "";
+    entries.forEach((entry) => {
+      const icon = entry.isAnonymous
+        ? "/img/anon-icon.png"
+        : entry.gender === "female"
+          ? "/img/female-icon.png"
+          : "/img/male-icon.png";
+      const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <img src="${icon}" width="22" height="22" style="margin-right:6px;">
+        <span class="username">${label}</span>
+      `;
+      userList.appendChild(li);
+    });
+  }
+
+  const anon = el("anonCount");
+  if (anon) {
+    const anonCount = entries.filter((entry) => entry.isAnonymous && !entry.isLocal).length;
+    anon.textContent = `+${anonCount} anonymous users`;
+  }
+}
+
+function syncRosterFromRoom() {
+  rosterByKey.clear();
+  const activeRoom = window.lkRoom || room;
+  if (!activeRoom) {
+    updateViewerList();
+    return;
+  }
+  if (activeRoom.localParticipant) {
+    trackParticipant(activeRoom.localParticipant);
+  }
+  activeRoom.participants?.forEach?.((participant) => {
+    trackParticipant(participant);
+  });
+  updateViewerList();
+}
+
 
 // Globale LiveKit room referentie (kan door andere blokken gebruikt worden)
 window.lkRoom = window.lkRoom || null;
@@ -157,15 +273,21 @@ async function init() {
 
   // ---------- EVENTS ----------
   room
-    .on(RoomEvent.ParticipantConnected, (p) => {
-      viewers.add(p.identity);
+    .on(RoomEvent.ParticipantConnected, (participant) => {
+      const entry = trackParticipant(participant);
       updateViewerList();
-      addMsg(`👋 ${p.identity} is joined`);
+      const name = entry?.name || getParticipantDisplayName(participant);
+      addMsg(`👋 ${name} is joined`);
     })
-    .on(RoomEvent.ParticipantDisconnected, (p) => {
-      viewers.delete(p.identity);
+    .on(RoomEvent.ParticipantDisconnected, (participant) => {
+      const name = getParticipantDisplayName(participant);
+      removeParticipantFromRoster(participant);
       updateViewerList();
-      addMsg(`🚪 ${p.identity} heeft verlaten`);
+      addMsg(`🚪 ${name} heeft verlaten`);
+    })
+    .on(RoomEvent.ParticipantMetadataChanged, (participant) => {
+      trackParticipant(participant);
+      updateViewerList();
     })
     .on(RoomEvent.TrackSubscribed, (_t, pub, part) => {
       if (pub.kind === Track.Kind.Video) attachVideo(pub.videoTrack, part.identity);
@@ -188,22 +310,14 @@ async function init() {
 window.lkRoom = room;
   window.Johka?.updateViewerList?.();
 
+  // Extra failsafe: refresh 1 seconde na init
   window.lkRoom
-    .on(RoomEvent.ParticipantConnected, (p) => {
-      console.log("👤 Joined:", p.identity);
-      window.Johka?.updateViewerList?.();
-    })
-    .on(RoomEvent.ParticipantDisconnected, (p) => {
-      console.log("👋 Left:", p.identity);
-      window.Johka?.updateViewerList?.();
-    });
+    .on(RoomEvent.ParticipantConnected, () => window.Johka?.updateViewerList?.())
+    .on(RoomEvent.ParticipantDisconnected, () => window.Johka?.updateViewerList?.())
+    .on(RoomEvent.ParticipantMetadataChanged, () => window.Johka?.updateViewerList?.());
 
   // Extra failsafe: refresh 1 seconde na init
   setTimeout(() => window.Johka?.updateViewerList?.(), 1000);
-
-  window.lkRoom
-    .on(RoomEvent.ParticipantConnected, () => window.Johka?.updateViewerList?.())
-    .on(RoomEvent.ParticipantDisconnected, () => window.Johka?.updateViewerList?.());
 
 
   // ---------- BUTTONS ----------
@@ -618,6 +732,8 @@ async function leaveRoom() {
     stopSnapshotLoop();
     isLive = false;
     isStarting = false;
+    rosterByKey.clear();
+    updateViewerList();
     isLeaving = false;
   }
 }
@@ -633,6 +749,7 @@ async function connectLiveKit(lkToken) {
     updateStatusBar("Verbonden ✅", "#4caf50");
     addMsg(`✅ Verbonden met LiveKit-server (${livekitRoomName || "room"})`);
     reconnectAttempts = 0;
+    syncRosterFromRoom();
   } catch (err) {
     updateStatusBar("Verbinding mislukt", "#e53935");
     handleDisconnect();
@@ -667,6 +784,7 @@ async function refreshLiveKitTokenAndReconnect() {
     updateStatusBar("✅ Herverbonden", "#4caf50");
     addMsg("✅ Herverbonden met LiveKit");
     reconnectAttempts = 0;
+    syncRosterFromRoom();
     if (isLive) {
       showLiveIndicator(true);
       await sendSnapshot();
@@ -678,12 +796,6 @@ async function refreshLiveKitTokenAndReconnect() {
   }
 }
 
-// ========== VIEWERS ==========
-function updateViewerList() {
-  const vc = el("viewCount");
-  if (vc) vc.textContent = viewers.size;
-  window.Johka?.updateViewerList?.();
-}
 
 // ========== STARTUP ==========
 window.addEventListener("beforeunload", () => {
@@ -864,58 +976,7 @@ window.Johka = window.Johka || {};
 
 window.Johka.updateViewerList = function () {
   try {
-    const r = window.lkRoom;
-    if (!r) return; // nog niet verbonden
-
-    const ul = document.getElementById("userList");
-    const anon = document.getElementById("anonCount");
-    if (!ul) return;
-
-    const safeParse = (raw) => {
-      if (typeof raw !== "string" || !raw.trim()) return {};
-      try {
-        return JSON.parse(raw);
-      } catch (err) {
-        console.warn("Kon participant metadata niet parsen:", err);
-        return {};
-      }
-    };
-
-
-    // LiveKit participants (excl. local of incl. — kies wat je wil)
-    const parts = Array.from(r.participants?.values?.() || []);
-    // Wil je de streamer (local) bovenaan tonen?
-    if (r.localParticipant) parts.unshift(r.localParticipant);
-
-    const enriched = parts.map((participant) => ({
-      participant,
-      meta: safeParse(participant.metadata),
-    }));
-
-    ul.innerHTML = "";
-
-    enriched.forEach(({ participant, meta }) => {
-      const v = {
-        name: participant.identity || meta.username || "guest",
-        isAnonymous: !!meta.isAnonymous,
-        gender: meta.gender || null,
-      };
-
-      const li = document.createElement("li");
-      let icon = "/img/male-icon.png";
-      if (v.gender === "female") icon = "/img/female-icon.png";
-      if (v.isAnonymous) icon = "/img/anon-icon.png";
-
-      li.innerHTML = `
-        <img src="${icon}" width="22" height="22" style="margin-right:6px;">
-        <span class="username">${v.name}</span>
-      `;
-      ul.appendChild(li);
-    });
-
-    const anonCount = enriched.filter(({ meta }) => !!meta.isAnonymous).length;
-
-    if (anon) anon.textContent = `+${anonCount} anonymous users`;
+    syncRosterFromRoom();
   } catch (err) {
     console.error("ViewerList update failed:", err);
   }
