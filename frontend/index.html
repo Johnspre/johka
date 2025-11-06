@@ -80,45 +80,53 @@
 
     // ===== STREAMS OPHALEN =====
     const API = "https://api.johka.be/api";
-    const container = document.getElementById("streams");
-    async function loadStreams() {
-      try {
-        const res = await fetch(`${API}/public/streams`);
-        const data = await res.json();
-        if (!data.length) {
-          container.innerHTML = "<p class='no-streams'>Momenteel geen live streams…</p>";
-          return;
-        }
-        container.innerHTML = data
-          .map(s => {
-            const preview = s.preview_url || s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
-            const target = s.room
-              ? `/viewer.html?room=${encodeURIComponent(s.room)}&u=${encodeURIComponent(s.username)}`
-              : `/creatorpage.html?u=${encodeURIComponent(s.username)}`;
-            return `
-          <div class="card" onclick="location.href='${target}'">
-            <img src="${preview}" alt="${s.username}">
-        <div class="info">
-        <div class="name">${s.username}</div>
-        <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
-        </div>
-        </div>`;
-          })
-          .join("");
+  const container = document.getElementById("streams");
 
-      } catch (err) {
-        container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
+  async function loadStreams() {
+    try {
+      const res = await fetch(`${API}/public/streams`);
+      const data = await res.json();
+
+      if (!data.length) {
+        container.innerHTML = "<p class='no-streams'>Momenteel geen live streams…</p>";
+        return;
       }
+
+      container.innerHTML = data.map(s => {
+        // 🧩 Gebruik snapshot van backend als preview, anders placeholder
+        const preview = s.preview_url
+          ? `${s.preview_url}?v=${Date.now()}`
+          : s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
+
+        const target = s.room
+          ? `/viewer.html?room=${encodeURIComponent(s.room)}&u=${encodeURIComponent(s.username)}`
+          : `/creatorpage.html?u=${encodeURIComponent(s.username)}`;
+
+        return `
+          <div class="card" onclick="location.href='${target}'">
+            <img src="${preview}" alt="${s.username}" loading="lazy">
+            <div class="info">
+              <div class="name">${s.username}</div>
+              <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
+            </div>
+          </div>`;
+      }).join("");
+
+    } catch (err) {
+      container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
+      console.error("Stream load error:", err);
     }
-    loadStreams();
-    let refreshTimer = setInterval(loadStreams, 60000);
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) clearInterval(refreshTimer);
-      else {
-        loadStreams();
-        refreshTimer = setInterval(loadStreams, 60000);
-      }
-    });
+  }
+
+  loadStreams();
+  let refreshTimer = setInterval(loadStreams, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearInterval(refreshTimer);
+    else {
+      loadStreams();
+      refreshTimer = setInterval(loadStreams, 60000);
+    }
+  });
 
     // ===== USERNAAM TONEN & TOKEN CHECK =====
     const username = localStorage.getItem("username");

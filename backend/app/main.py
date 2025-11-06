@@ -42,6 +42,13 @@ from PIL import Image
 # ---------- LiveKit ----------
 #   pip install livekit-api
 #from livekit import AccessToken, VideoGrant
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI(title="Johka Live API", version="1.0")
+
+# 👇 voeg dit toe net na de app-definitie
+app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+
 
 
 
