@@ -46,11 +46,6 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Johka Live API", version="1.0")
 
-# 👇 voeg dit toe net na de app-definitie
-app.mount("/static", StaticFiles(directory="/app/static"), name="static")
-
-
-
 
 # ============================================
 # ENV & CONFIG
@@ -93,7 +88,6 @@ def _preview_url(filename: Optional[str]) -> Optional[str]:
 # ============================================
 # APP & CORS
 # ============================================
-app = FastAPI(title="Johka Live API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -112,6 +106,8 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],  # 👈 belangrijk: laat JS de response lezen
 )
+# 👇 serveer statische bestanden (previews, avatars, ...)
+app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 
 # ============================================
 # DATABASE
