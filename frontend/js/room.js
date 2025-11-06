@@ -186,24 +186,24 @@ async function init() {
 
   // Globale LiveKit-referentie voor andere modules
 window.lkRoom = room;
-Johka.updateViewerList?.();
+  window.Johka?.updateViewerList?.();
 
-window.lkRoom
-  .on(RoomEvent.ParticipantConnected, (p) => {
-    console.log("👤 Joined:", p.identity);
-    Johka.updateViewerList?.();
-  })
-  .on(RoomEvent.ParticipantDisconnected, (p) => {
-    console.log("👋 Left:", p.identity);
-    Johka.updateViewerList?.();
-  });
+  window.lkRoom
+    .on(RoomEvent.ParticipantConnected, (p) => {
+      console.log("👤 Joined:", p.identity);
+      window.Johka?.updateViewerList?.();
+    })
+    .on(RoomEvent.ParticipantDisconnected, (p) => {
+      console.log("👋 Left:", p.identity);
+      window.Johka?.updateViewerList?.();
+    });
 
-// Extra failsafe: refresh 1 seconde na init
-setTimeout(() => Johka.updateViewerList?.(), 1000);
+  // Extra failsafe: refresh 1 seconde na init
+  setTimeout(() => window.Johka?.updateViewerList?.(), 1000);
 
-window.lkRoom
-  .on(RoomEvent.ParticipantConnected, () => Johka.updateViewerList?.())
-  .on(RoomEvent.ParticipantDisconnected, () => Johka.updateViewerList?.());
+  window.lkRoom
+    .on(RoomEvent.ParticipantConnected, () => window.Johka?.updateViewerList?.())
+    .on(RoomEvent.ParticipantDisconnected, () => window.Johka?.updateViewerList?.());
 
 
   // ---------- BUTTONS ----------
@@ -682,6 +682,7 @@ async function refreshLiveKitTokenAndReconnect() {
 function updateViewerList() {
   const vc = el("viewCount");
   if (vc) vc.textContent = viewers.size;
+  window.Johka?.updateViewerList?.();
 }
 
 // ========== STARTUP ==========
@@ -861,7 +862,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ================================
 window.Johka = window.Johka || {};
 
-Johka.updateViewerList = function () {
+window.Johka.updateViewerList = function () {
   try {
     const r = window.lkRoom;
     if (!r) return; // nog niet verbonden
@@ -870,17 +871,32 @@ Johka.updateViewerList = function () {
     const anon = document.getElementById("anonCount");
     if (!ul) return;
 
+    const safeParse = (raw) => {
+      if (typeof raw !== "string" || !raw.trim()) return {};
+      try {
+        return JSON.parse(raw);
+      } catch (err) {
+        console.warn("Kon participant metadata niet parsen:", err);
+        return {};
+      }
+    };
+
+
     // LiveKit participants (excl. local of incl. — kies wat je wil)
     const parts = Array.from(r.participants?.values?.() || []);
     // Wil je de streamer (local) bovenaan tonen?
     if (r.localParticipant) parts.unshift(r.localParticipant);
 
+    const enriched = parts.map((participant) => ({
+      participant,
+      meta: safeParse(participant.metadata),
+    }));
+
     ul.innerHTML = "";
 
-    parts.forEach(p => {
-      const meta = p.metadata ? JSON.parse(p.metadata || "{}") : {};
+    enriched.forEach(({ participant, meta }) => {
       const v = {
-        name: p.identity || meta.username || "guest",
+        name: participant.identity || meta.username || "guest",
         isAnonymous: !!meta.isAnonymous,
         gender: meta.gender || null,
       };
@@ -897,10 +913,7 @@ Johka.updateViewerList = function () {
       ul.appendChild(li);
     });
 
-    const anonCount = parts.filter(p => {
-      const meta = p.metadata ? JSON.parse(p.metadata || "{}") : {};
-      return !!meta.isAnonymous;
-    }).length;
+    const anonCount = enriched.filter(({ meta }) => !!meta.isAnonymous).length;
 
     if (anon) anon.textContent = `+${anonCount} anonymous users`;
   } catch (err) {

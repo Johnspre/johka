@@ -185,7 +185,7 @@ main {
 }
 /* tab-content moet flex zijn zodat #chat kan “vullen” en intern scrollen */
 .tabContent.active {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   min-height: 0;   /* cruciaal voor goed scroll-gedrag */
 }
@@ -989,4 +989,8 @@ main {
     font-size: 14px;
     padding: 6px 8px;
   }
+}
+/* Zorg dat enkel de actieve zijbalk-tab zichtbaar is */
+.tabContent:not(.active) {
+  display: none !important;
 }
