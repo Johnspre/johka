@@ -22,12 +22,6 @@ https://johka.be, https://www.johka.be {
 # =========================================================
 https://api.johka.be {
 
-    # 👉 Statische bestanden zoals previews en favicon
-    handle_path /static/* {
-        root * /app/static
-        file_server
-    }
-
     reverse_proxy infra-backend:8000
 
     @cors_preflight method OPTIONS
