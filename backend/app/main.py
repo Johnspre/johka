@@ -1143,7 +1143,7 @@ def create_payment(data: dict, user: UserDB = Depends(get_current_user)):
         payment = mollie.payments.create({
             "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
             "description": f"Opwaarderen Johka Wallet ({user.username})",
-            "redirectUrl": f"https://live.johka.be/wallet.html?success=1",
+            "redirectUrl": f"https://johka.be/wallet.html?success=1",
             "webhookUrl": f"https://api.johka.be/api/wallet/webhook",
             "metadata": {"user_id": user.id}
         })
@@ -1182,6 +1182,7 @@ async def mollie_webhook(request: Request, s: Session = Depends(db)):
                 wallet.balance += float(payment.amount["value"]) * 10  # 💰 1 EUR = 10 tokens
                 s.commit()
                 print(f"✅ Mollie betaling voltooid voor user {user_id}")
+            
         else:
             print("⚠️ Geen user_id in metadata gevonden")
     else:
