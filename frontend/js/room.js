@@ -143,9 +143,22 @@ function syncRosterFromRoom() {
   if (activeRoom.localParticipant) {
     trackParticipant(activeRoom.localParticipant);
   }
-  activeRoom.participants?.forEach?.((participant) => {
-    trackParticipant(participant);
-  });
+  const remoteMap =
+    activeRoom.remoteParticipants instanceof Map
+      ? activeRoom.remoteParticipants
+      : activeRoom.participants instanceof Map
+        ? activeRoom.participants
+        : null;
+
+  if (remoteMap) {
+    remoteMap.forEach((participant) => {
+      trackParticipant(participant);
+    });
+  } else if (Array.isArray(activeRoom.participants)) {
+    activeRoom.participants.forEach((participant) => {
+      trackParticipant(participant);
+    });
+  }
   updateViewerList();
 }
 
