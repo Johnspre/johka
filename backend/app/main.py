@@ -21,7 +21,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from starlette.responses import JSONResponse
-
+from fastapi import Header
 # ---------- DB ----------
 import psycopg2
 from sqlalchemy import (
@@ -84,6 +84,15 @@ def _preview_url(filename: Optional[str]) -> Optional[str]:
     if not filename:
         return None
     return f"https://api.johka.be/static/uploads/previews/{filename}"
+
+ADMIN_KEY = os.getenv("ADMIN_KEY", "Admin")
+
+def verify_admin(Adminkey: str = Header(None), key: str = None):
+    """Controleer of geldige admin key is meegegeven"""
+    if Adminkey == ADMIN_KEY or key == ADMIN_KEY:
+        return True
+    raise HTTPException(status_code=403, detail="Geen toegang: ongeldige admin key")
+
 
 # ============================================
 # APP & CORS
@@ -1311,6 +1320,56 @@ async def mollie_webhook(request: Request, s: Session = Depends(db)):
         print(f"❌ Mollie status: {payment.status}")
 
     return {"status": "ok"}
+
+# ✅ 1. Alle users en hun saldo
+@app.get("/api/admin/users")
+def admin_users(s: Session = Depends(db), auth=Depends(verify_admin)):
+    rows = s.execute(text("""
+        SELECT u.id, u.username, w.balance
+        FROM users u
+        LEFT JOIN wallets w ON w.user_id = u.id
+        ORDER BY u.id
+    """)).fetchall()
+    return [{"id": r.id, "username": r.username, "balance": r.balance or 0} for r in rows]
+
+
+# ✅ 2. Transactielog opvragen
+@app.get("/api/admin/history")
+def admin_history(s: Session = Depends(db), auth=Depends(verify_admin)):
+    rows = s.execute(text("""
+        SELECT h.id, u.username, h.change, h.reason, h.created_at
+        FROM wallet_history h
+        JOIN users u ON u.id = h.user_id
+        ORDER BY h.created_at DESC
+        LIMIT 100
+    """)).fetchall()
+    return [
+        {
+            "id": r.id,
+            "user": r.username,
+            "change": r.change,
+            "reason": r.reason,
+            "created_at": r.created_at
+        } for r in rows
+    ]
+
+
+# ✅ 3. Tokens handmatig aanpassen
+@app.post("/api/admin/add-tokens")
+def admin_add_tokens(data: dict, s: Session = Depends(db), auth=Depends(verify_admin)):
+    user_id = data.get("user_id")
+    amount = data.get("amount")
+    if not user_id or not amount:
+        raise HTTPException(status_code=400, detail="user_id en amount vereist")
+
+    wallet = s.query(Wallet).filter_by(user_id=user_id).first()
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet niet gevonden")
+
+    wallet.balance += int(amount)
+    s.add(WalletHistory(user_id=user_id, change=amount, reason="admin-aanpassing"))
+    s.commit()
+    return {"status": "ok", "new_balance": wallet.balance}
 
 # =============================================
 # 🩺 HEALTHCHECK ENDPOINT

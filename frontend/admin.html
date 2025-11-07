@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Johka Admin Dashboard</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; background: #fafafa; }
+    h1 { color: #333; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:8px; border-bottom:1px solid #ddd; text-align:left; }
+    th { background:#f2f2f2; }
+    button { padding:4px 10px; border:none; background:#0078ff; color:white; border-radius:4px; cursor:pointer; }
+    button:hover { background:#005fcc; }
+    input { padding:4px; width:80px; margin-right:6px; }
+  </style>
+
+  <script>
+    // 🔐 Vraag of laad admin key
+    let ADMIN_KEY = localStorage.getItem("admin_key");
+    if (!ADMIN_KEY) {
+      ADMIN_KEY = prompt("🔐 Voer admin sleutel in:");
+      if (ADMIN_KEY) localStorage.setItem("admin_key", ADMIN_KEY);
+    }
+
+    const API = "https://api.johka.be/api";
+
+    // 🧩 Helper om headers mee te geven
+    function authHeaders(extra = {}) {
+      return Object.assign(
+        { "Adminkey": ADMIN_KEY },
+        extra
+      );
+    }
+
+    // 👥 Users laden
+    async function loadUsers(){
+      const res = await fetch(API + "/admin/users", { headers: authHeaders() });
+      if (!res.ok) {
+        alert("❌ Geen toegang of foutieve admin key.");
+        localStorage.removeItem("admin_key");
+        location.reload();
+        return;
+      }
+      const users = await res.json();
+      const tbody = document.querySelector("#users tbody");
+      tbody.innerHTML = "";
+      for(const u of users){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${u.id}</td>
+          <td>${u.username}</td>
+          <td>${u.balance}</td>
+          <td>
+            <input type="number" id="amt-${u.id}" placeholder="+10">
+            <button onclick="addTokens(${u.id})">Voeg toe</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    // 📜 Transacties laden
+    async function loadHistory(){
+      const res = await fetch(API + "/admin/history", { headers: authHeaders() });
+      const list = await res.json();
+      const tbody = document.querySelector("#history tbody");
+      tbody.innerHTML = "";
+      for(const t of list){
+        const tr = document.createElement("tr");
+        const sign = t.change > 0 ? "+" : "";
+        tr.innerHTML = `
+          <td>${new Date(t.created_at).toLocaleString()}</td>
+          <td>${t.user}</td>
+          <td>${t.reason}</td>
+          <td>${sign}${t.change}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    // ➕ Tokens toevoegen
+    async function addTokens(id){
+      const val = document.getElementById("amt-"+id).value;
+      if(!val) return alert("Voer een bedrag in.");
+      await fetch(API + "/admin/add-tokens", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ user_id:id, amount:parseInt(val) })
+      });
+      await loadUsers();
+      await loadHistory();
+    }
+
+    // 🚀 Init
+    window.addEventListener("DOMContentLoaded", () => {
+      loadUsers();
+      loadHistory();
+    });
+  </script>
+</head>
+
+<body>
+  <h1>💼 Johka Admin Dashboard</h1>
+
+  <h2>👥 Gebruikers</h2>
+  <table id="users">
+    <thead><tr><th>ID</th><th>Gebruiker</th><th>Saldo</th><th>Actie</th></tr></thead>
+    <tbody><tr><td colspan="4">Laden...</td></tr></tbody>
+  </table>
+
+  <h2>📜 Laatste transacties</h2>
+  <table id="history">
+    <thead><tr><th>Datum</th><th>Gebruiker</th><th>Reden</th><th>Bedrag</th></tr></thead>
+    <tbody><tr><td colspan="4">Laden...</td></tr></tbody>
+  </table>
+</body>
+</html>
