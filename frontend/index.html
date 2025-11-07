@@ -33,20 +33,18 @@
             </div>
             <hr />
             <p><strong>Status:</strong> Basic Member</p>
-            <p><strong>Tokens:</strong> <span id="tokenCount">13</span></p>
+            <p><strong>Tokens:</strong> <span id="tokenBalance">0</span></p>
+            <a href="/wallet.html" style="color:#ff7a00;font-weight:bold;">Get more ➕</a>
             <hr />
             <a href="/profile.html">My Profile</a>
-            <a href="/collection.html">My Collection</a>
             <a href="/feedback.html">Send Feedback</a>
-            <a href="/logout.html">Log Out</a>
+            <a href="#" onclick="logoutUser(); return false;" style="color:#ff7300;">(Log Out)</a>
           </div>
         </div>
       </div>
 
       <button id="broadcastBtn">Broadcast Yourself</button>
-      <button id="signupBtn" onclick="location.href='/register.html'">
-        Sign Up ▶
-      </button>
+      <button id="signupBtn" onclick="location.href='/register.html'">Sign Up ▶</button>
     </div>
   </header>
 
@@ -80,57 +78,57 @@
 
     // ===== STREAMS OPHALEN =====
     const API = "https://api.johka.be/api";
-  const container = document.getElementById("streams");
+    const container = document.getElementById("streams");
 
-  async function loadStreams() {
-    try {
-      const res = await fetch(`${API}/public/streams`);
-      const data = await res.json();
+    async function loadStreams() {
+      try {
+        const res = await fetch(`${API}/public/streams`);
+        const data = await res.json();
 
-      if (!data.length) {
-        container.innerHTML = "<p class='no-streams'>Momenteel geen live streams…</p>";
-        return;
+        if (!data.length) {
+          container.innerHTML = "<p class='no-streams'>Momenteel geen live streams…</p>";
+          return;
+        }
+
+        container.innerHTML = data.map(s => {
+          const preview = s.preview_url
+            ? `${s.preview_url}?v=${Date.now()}`
+            : s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
+
+          const target = s.room
+            ? `/viewer.html?room=${encodeURIComponent(s.room)}&u=${encodeURIComponent(s.username)}`
+            : `/creatorpage.html?u=${encodeURIComponent(s.username)}`;
+
+          return `
+            <div class="card" onclick="location.href='${target}'">
+              <img src="${preview}" alt="${s.username}" loading="lazy">
+              <div class="info">
+                <div class="name">${s.username}</div>
+                <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
+              </div>
+            </div>`;
+        }).join("");
+
+      } catch (err) {
+        container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
+        console.error("Stream load error:", err);
       }
-
-      container.innerHTML = data.map(s => {
-        // 🧩 Gebruik snapshot van backend als preview, anders placeholder
-        const preview = s.preview_url
-          ? `${s.preview_url}?v=${Date.now()}`
-          : s.thumb || `https://picsum.photos/seed/${encodeURIComponent(s.username)}/400/300`;
-
-        const target = s.room
-          ? `/viewer.html?room=${encodeURIComponent(s.room)}&u=${encodeURIComponent(s.username)}`
-          : `/creatorpage.html?u=${encodeURIComponent(s.username)}`;
-
-        return `
-          <div class="card" onclick="location.href='${target}'">
-            <img src="${preview}" alt="${s.username}" loading="lazy">
-            <div class="info">
-              <div class="name">${s.username}</div>
-              <div class="viewers">👁 ${s.viewers || 0} kijkers</div>
-            </div>
-          </div>`;
-      }).join("");
-
-    } catch (err) {
-      container.innerHTML = "<p class='error'>❌ Fout bij laden streams</p>";
-      console.error("Stream load error:", err);
     }
-  }
 
-  loadStreams();
-  let refreshTimer = setInterval(loadStreams, 60000);
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) clearInterval(refreshTimer);
-    else {
-      loadStreams();
-      refreshTimer = setInterval(loadStreams, 60000);
-    }
-  });
+    loadStreams();
+    let refreshTimer = setInterval(loadStreams, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) clearInterval(refreshTimer);
+      else {
+        loadStreams();
+        refreshTimer = setInterval(loadStreams, 60000);
+      }
+    });
 
     // ===== USERNAAM TONEN & TOKEN CHECK =====
     const username = localStorage.getItem("username");
     const token = localStorage.getItem("token");
+
     function tokenExpired(token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
@@ -140,44 +138,64 @@
         return true;
       }
     }
+
     if (token && tokenExpired(token)) {
       console.log("🔒 Token verlopen, uitloggen...");
       localStorage.removeItem("token");
       localStorage.removeItem("username");
     }
 
-    // Dynamische dropdown
-   if (username && token && !tokenExpired(token)) {
-  // ✅ Ingelogd → dropdown aanpassen
-  profileBtn.innerText = `👤 ${username} ▾`;
-  document.querySelector(".dropdown-content").innerHTML = `
-    <p><strong>Status:</strong> Basic Member</p>
-    <p><strong>Tokens:</strong> 13</p>
-    <hr>
-    <a href="/profile.html">My Profile</a>
-    <a href="/feedback.html">Send Feedback</a>
-    <a href="#" onclick="logoutUser(); return false;" style="color:#ff7300;">(Log Out)</a>
-  `;
-} else {
-  // ❌ Niet ingelogd
-  profileBtn.innerText = "👤 Anonymous ▾";
-  document.querySelector(".dropdown-content").innerHTML = `
-    <p><strong>Status:</strong> Anonymous</p>
-    <p><strong>Tokens:</strong> 0</p>
-    <hr>
-    <a href="#" onclick="openLoginPopup(); return false;" style="color:#ff7300;">(Log In)</a>
-    <a href="/register.html" style="color:#0080c0;">(Sign Up)</a>
-  `;
-}
+    // ---------- Helpers voor dropdown ----------
+    function renderLoggedIn(username) {
+      profileBtn.innerText = `👤 ${username} ▾`;
+      document.querySelector(".dropdown-content").innerHTML = `
+        <p><strong>Status:</strong> Basic Member</p>
+        <p><strong>Tokens:</strong> <span id="tokenBalance">Laden...</span></p>
+        <a href="/wallet.html" style="color:#ff7a00;font-weight:bold;">Get more ➕</a>
+        <hr>
+        <a href="/profile.html">My Profile</a>
+        <a href="/feedback.html">Send Feedback</a>
+        <a href="#" onclick="logoutUser(); return false;" style="color:#ff7300;">(Log Out)</a>
+      `;
+    }
 
+    function renderLoggedOut() {
+      profileBtn.innerText = "👤 Anonymous ▾";
+      document.querySelector(".dropdown-content").innerHTML = `
+        <p><strong>Status:</strong> Anonymous</p>
+        <p><strong>Tokens:</strong> 0</p>
+        <hr>
+        <a href="#" onclick="openLoginPopup(); return false;" style="color:#ff7300;">(Log In)</a>
+        <a href="/register.html" style="color:#0080c0;">(Sign Up)</a>
+      `;
+    }
+
+    async function updateWalletBalance() {
+      const t = localStorage.getItem("token");
+      if (!t) return;
+      try {
+        const r = await fetch("https://api.johka.be/api/wallet", {
+          headers: { "Authorization": "Bearer " + t }
+        });
+        if (!r.ok) throw 0;
+        const data = await r.json();
+        const el = document.getElementById("tokenBalance");
+        if (el) el.textContent = data.balance ?? 0;
+      } catch {}
+    }
+
+    // ---------- Init ----------
+    if (username && token && !tokenExpired(token)) {
+      renderLoggedIn(username);
+      updateWalletBalance();
+    } else {
+      renderLoggedOut();
+    }
 
     // ===== BROADCAST BUTTON =====
     document.getElementById("broadcastBtn").addEventListener("click", () => {
-      if (!localStorage.getItem("token")) {
-        openLoginPopup(); // eerst inloggen
-      } else {
-        location.href = "/room.html"; // ingelogd → kamer in
-      }
+      if (!localStorage.getItem("token")) openLoginPopup();
+      else location.href = "/room.html";
     });
   </script>
 
@@ -216,14 +234,8 @@
       transform: scale(0.95);
       transition: transform 0.35s ease;
     }
-    .modal.show .modal-content {
-      transform: scale(1);
-    }
-    .modal-content iframe {
-      border: none;
-      width: 100%;
-      height: 440px;
-    }
+    .modal.show .modal-content { transform: scale(1); }
+    .modal-content iframe { border: none; width: 100%; height: 440px; }
     .modal-content .close {
       position: absolute;
       right: 10px;
@@ -248,58 +260,36 @@
     }
 
     function logoutUser() {
-  localStorage.removeItem("username");
-  localStorage.removeItem("token");
-  profileBtn.innerText = "👤 Anonymous ▾";
-  document.querySelector(".dropdown-content").innerHTML = `
-    <p><strong>Status:</strong> Anonymous</p>
-    <p><strong>Tokens:</strong> 0</p>
-    <hr>
-    <a href="#" onclick="openLoginPopup(); return false;" style="color:#ff7300;">(Log In)</a>
-    <a href="/register.html" style="color:#0080c0;">(Sign Up)</a>
-  `;
-  console.log("🚪 Uitgelogd");
-}
+      localStorage.removeItem("username");
+      localStorage.removeItem("token");
+      renderLoggedOut();
+      console.log("🚪 Uitgelogd");
+    }
 
-
-    // ❌ Popup sluiten
     function closeLoginPopup() {
       document.getElementById("loginModal").classList.remove("show");
     }
 
     // 📩 Ontvang melding van login-popup
-   window.addEventListener("message", e => {
-  if (e.data?.type === "LOGIN_SUCCESS" && e.data.username) {
-    closeLoginPopup();
+    window.addEventListener("message", e => {
+      if (e.data?.type === "LOGIN_SUCCESS" && e.data.username) {
+        closeLoginPopup();
+        localStorage.setItem("username", e.data.username);
+        renderLoggedIn(e.data.username);
+        updateWalletBalance();
 
-    // 🔔 Welkomstmelding
-    const msg = document.createElement("div");
-    msg.textContent = `👋 Welkom terug, ${e.data.username}!`;
-    Object.assign(msg.style, {
-      position: "fixed", top: "20px", right: "20px",
-      background: "#ff7300", color: "#fff", padding: "10px 15px",
-      borderRadius: "8px", fontWeight: "bold", zIndex: "9999",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.3)"
+        const msg = document.createElement("div");
+        msg.textContent = `👋 Welkom terug, ${e.data.username}!`;
+        Object.assign(msg.style, {
+          position: "fixed", top: "20px", right: "20px",
+          background: "#ff7300", color: "#fff", padding: "10px 15px",
+          borderRadius: "8px", fontWeight: "bold", zIndex: "9999",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.3)"
+        });
+        document.body.appendChild(msg);
+        setTimeout(() => msg.remove(), 3000);
+      }
     });
-    document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 3000);
-
-    // ✅ Update profielknop en dropdown onmiddellijk
-    profileBtn.innerText = `👤 ${e.data.username} ▾`;
-    document.querySelector(".dropdown-content").innerHTML = `
-      <p><strong>Status:</strong> Basic Member</p>
-      <p><strong>Tokens:</strong> 13</p>
-      <hr>
-      <a href="/profile.html">My Profile</a>
-      <a href="/feedback.html">Send Feedback</a>
-      <a href="#" onclick="logoutUser(); return false;" style="color:#ff7300;">(Log Out)</a>
-    `;
-
-    // Bewaren in localStorage
-    localStorage.setItem("username", e.data.username);
-  }
-});
-
   </script>
 </body>
 </html>
