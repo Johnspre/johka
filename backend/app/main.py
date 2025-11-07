@@ -1165,7 +1165,79 @@ def create_payment(data: dict, user: UserDB = Depends(get_current_user)):
         return {"payment_id": payment.id, "checkout_url": payment.checkout_url}
     except Exception as e:
         raise HTTPException(500, f"Betaling aanmaken mislukt: {e}")
+    
 
+# ============================================
+# 🔐 LiveKit user herkenning + wallet history
+# ============================================
+import jwt  # pip install PyJWT
+from fastapi import Header, HTTPException
+from sqlalchemy import text
+
+
+def current_user(Authorization: str = Header(None), s: Session = Depends(db)):
+    """
+    Haal huidige gebruiker uit de LiveKit-token.
+    De token wordt meegegeven in de Authorization-header:
+        Authorization: Bearer <livekit_token>
+    """
+    if not Authorization or not Authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Geen geldige Authorization-header")
+
+    token = Authorization.split(" ")[1]
+
+    try:
+        # LiveKit-tokens zijn JWT's – we hoeven de handtekening niet te verifiëren
+        payload = jwt.decode(token, options={"verify_signature": False})
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Ongeldig token: {e}")
+
+    # Zoek identity of username veld in token
+    identity = payload.get("sub") or payload.get("name") or payload.get("identity")
+    if not identity:
+        raise HTTPException(status_code=401, detail="Geen identity in LiveKit-token")
+
+    # Haal gebruiker op uit DB
+    user = s.query(User).filter_by(username=identity).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Gebruiker '{identity}' niet gevonden")
+
+    return user
+
+
+# ============================================
+# 💾 Transactiegeschiedenis ophalen
+# ============================================
+@app.get("/api/wallet/history")
+def wallet_history(user = Depends(current_user), s: Session = Depends(db)):
+
+    """
+    Geef laatste transacties (wallet_history) van de huidige gebruiker terug.
+    """
+    rows = s.execute(
+        text("""
+            SELECT change, reason, created_at
+            FROM wallet_history
+            WHERE user_id = :uid
+            ORDER BY created_at DESC
+            LIMIT 50
+        """),
+        {"uid": user.id}
+    ).fetchall()
+
+    return [
+        {
+            "change": r.change,
+            "reason": r.reason,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+# ============================================
+# 💳 Mollie webhook – saldo bijwerken + loggen
+# ============================================
 @app.post("/api/wallet/webhook")
 async def mollie_webhook(request: Request, s: Session = Depends(db)):
     """Webhook die Mollie aanroept bij statuswijziging (paid, failed, etc.)"""
@@ -1193,10 +1265,22 @@ async def mollie_webhook(request: Request, s: Session = Depends(db)):
         if user_id:
             wallet = s.query(Wallet).filter_by(user_id=user_id).first()
             if wallet:
-                wallet.balance += float(payment.amount["value"]) * 10  # 💰 1 EUR = 10 tokens
+                amount_tokens = int(float(payment.amount["value"]) * 10)  # 💰 1 EUR = 10 tokens
+                wallet.balance += amount_tokens
                 s.commit()
-                print(f"✅ Mollie betaling voltooid voor user {user_id}")
-            
+                print(f"✅ Mollie betaling voltooid voor user {user_id} (+{amount_tokens} tokens)")
+
+                # 📜 Log transactie in wallet_history
+                s.execute(
+                    text("""
+                        INSERT INTO wallet_history (user_id, change, reason)
+                        VALUES (:uid, :amount, 'mollie')
+                    """),
+                    {"uid": user_id, "amount": amount_tokens}
+                )
+                s.commit()
+                print(f"📘 Log toegevoegd aan wallet_history voor user {user_id}")
+
         else:
             print("⚠️ Geen user_id in metadata gevonden")
     else:

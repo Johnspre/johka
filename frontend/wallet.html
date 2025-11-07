@@ -3,13 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  
-  
+  <title>Johka Live – Wallet</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #ffffff;
+      color: #222;
+      margin: 0;
+      padding: 20px;
+    }
+    main {
+      max-width: 700px;
+      margin: auto;
+    }
+    h2 {
+      margin-top: 30px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    th {
+      background: #f7f7f7;
+    }
+    #balanceBox {
+      background: #f0f8ff;
+      border: 1px solid #cfe4ff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #0078ff;
+      border: none;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #005fcc;
+    }
+
+    /* 🔸 Compactere stijl voor embedded modus (in viewer-tab) */
+    body.embedded {
+      padding: 10px;
+      background: transparent;
+    }
+    body.embedded #balanceBox {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      padding: 10px;
+    }
+    body.embedded button {
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      color: #333;
+    }
+    body.embedded th {
+      background: #f2f2f2;
+    }
+  </style>
+
   <script>
     const API = "https://api.johka.be/api";
 
+    // Detecteer of wallet.html is ingesloten in een iframe/tab
+    if (window !== window.top) {
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.classList.add("embedded");
+      });
+    }
+
     // ✅ Toon melding als gebruiker terugkeert van Mollie
-const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(window.location.search);
     if (params.get("success") === "1") {
       const showPaymentBanner = () => {
         const banner = document.createElement("div");
@@ -25,7 +101,7 @@ const params = new URLSearchParams(window.location.search);
           margin-bottom:15px;
         `;
         document.body.prepend(banner);
-        // verwijder de parameter uit de URL na 3 sec
+        fetchWallet(); // saldo refreshen
         setTimeout(() => {
           history.replaceState(null, "", window.location.pathname);
         }, 3000);
@@ -38,81 +114,97 @@ const params = new URLSearchParams(window.location.search);
       }
     }
 
-
-    async function fetchWallet(){
+    // 💰 Saldo ophalen
+    async function fetchWallet() {
       const token = localStorage.getItem("token");
-      if(!token) return location.href="/login.html";
+      if (!token) return location.href="/login.html";
 
-      const res = await fetch(API + "/wallet", {
-        headers:{Authorization:"Bearer "+token}
-      });
-      const data = await res.json();
-      document.getElementById("balance").textContent = data.balance;
-    }
-
-    async function fetchTips(){
-      const token = localStorage.getItem("token");
-      const res = await fetch(API + "/tips", {
-        headers:{Authorization:"Bearer "+token}
-      });
-      const list = await res.json();
-      const tbody = document.querySelector("tbody");
-      tbody.innerHTML = "";
-      for(const t of list){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${new Date(t.when).toLocaleString()}</td>
-          <td>${t.from}</td>
-          <td>${t.to}</td>
-          <td>${t.amount}</td>
-        `;
-        tbody.appendChild(tr);
+      try {
+        const res = await fetch(API + "/wallet", {
+          headers: { Authorization: "Bearer " + token }
+        });
+        const data = await res.json();
+        document.getElementById("balance").textContent = data.balance ?? 0;
+      } catch (err) {
+        console.error("❌ Fout bij ophalen saldo:", err);
       }
     }
 
-    async function topup() {
-  const token = localStorage.getItem("token");
-  if (!token) return alert("Je moet ingelogd zijn.");
+    // 📜 Transactiegeschiedenis ophalen
+    async function fetchHistory() {
+      const token = localStorage.getItem("token");
+      if (!token) return location.href="/login.html";
 
-  const euro = prompt("Hoeveel EURO wil je opwaarderen?", "5");
-  const amount = parseFloat(euro);
-  if (!amount || amount <= 0) return alert("Ongeldig bedrag.");
+      try {
+        const res = await fetch(API + "/wallet/history", {
+          headers: { Authorization: "Bearer " + token }
+        });
+        const list = await res.json();
+        const tbody = document.querySelector("tbody");
+        tbody.innerHTML = "";
 
-  try {
-    const res = await fetch(`${API}/wallet/create-payment`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token,
-      },
-      body: JSON.stringify({
-        amount,
-        redirect_origin: window.location.origin,
-      }),
-    });
+        if (!list || list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="3">Nog geen transacties</td></tr>`;
+          return;
+        }
 
-    const data = await res.json();
-    if (data.checkout_url) {
-      // 👉 Stuur gebruiker naar Mollie-betaalscherm
-      window.location.href = data.checkout_url;
-    } else {
-      alert("❌ Fout bij starten betaling");
-      console.error(data);
+        for (const t of list) {
+          const tr = document.createElement("tr");
+          const sign = t.change > 0 ? "+" : "";
+          const reason = t.reason === "mollie" ? "💳 Opwaardering" : t.reason;
+          tr.innerHTML = `
+            <td>${new Date(t.created_at).toLocaleString()}</td>
+            <td>${reason}</td>
+            <td>${sign}${t.change} tokens</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      } catch (err) {
+        console.error("❌ Fout bij ophalen transacties:", err);
+      }
     }
-  } catch (err) {
-    alert("❌ Netwerkfout bij betaling");
-    console.error(err);
-  }
-}
 
+    // 💳 Opwaarderen met Mollie
+    async function topup() {
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Je moet ingelogd zijn.");
 
+      const euro = prompt("Hoeveel EURO wil je opwaarderen?", "5");
+      const amount = parseFloat(euro);
+      if (!amount || amount <= 0) return alert("Ongeldig bedrag.");
+
+      try {
+        const res = await fetch(`${API}/wallet/create-payment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token,
+          },
+          body: JSON.stringify({
+            amount,
+            redirect_origin: window.location.origin,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          alert("❌ Fout bij starten betaling");
+          console.error(data);
+        }
+      } catch (err) {
+        alert("❌ Netwerkfout bij betaling");
+        console.error(err);
+      }
+    }
+
+    // 🚀 Init
     const initWalletPage = () => {
       fetchWallet();
-      fetchTips();
+      fetchHistory();
       const topupBtn = document.getElementById("topupBtn");
-      if (topupBtn) {
-        topupBtn.addEventListener("click", topup, { once: false });
-      }
+      if (topupBtn) topupBtn.addEventListener("click", topup, { once: false });
     };
 
     if (document.readyState === "loading") {
@@ -122,9 +214,8 @@ const params = new URLSearchParams(window.location.search);
     }
   </script>
 </head>
-<body>
- 
 
+<body>
   <main>
     <div id="balanceBox">
       Saldo: 💰 <span id="balance">0</span> tokens <br>
@@ -134,15 +225,12 @@ const params = new URLSearchParams(window.location.search);
     <h2>📜 Transacties</h2>
     <table>
       <thead>
-        <tr><th>Datum</th><th>Van</th><th>Naar</th><th>Bedrag</th></tr>
+        <tr><th>Datum</th><th>Reden</th><th>Bedrag</th></tr>
       </thead>
       <tbody>
-        <tr><td colspan="4">Laden...</td></tr>
+        <tr><td colspan="3">Laden...</td></tr>
       </tbody>
     </table>
   </main>
-
-  
 </body>
 </html>
-
