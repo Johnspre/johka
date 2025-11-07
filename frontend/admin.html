@@ -63,6 +63,12 @@
     // 📜 Transacties laden
     async function loadHistory(){
       const res = await fetch(API + "/admin/history", { headers: authHeaders() });
+      if (!res.ok) {
+        alert("❌ Geen toegang of foutieve admin key.");
+        localStorage.removeItem("admin_key");
+        location.reload();
+        return;
+      }
       const list = await res.json();
       const tbody = document.querySelector("#history tbody");
       tbody.innerHTML = "";

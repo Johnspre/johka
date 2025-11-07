@@ -28,14 +28,14 @@ https://api.johka.be {
     handle @cors_preflight {
         header Access-Control-Allow-Origin "https://johka.be"
         header Access-Control-Allow-Methods "GET, POST, OPTIONS"
-        header Access-Control-Allow-Headers "Authorization, Content-Type"
+        header Access-Control-Allow-Headers "Authorization, Content-Type, adminkey"
         respond "" 204
     }
 
     header {
         Access-Control-Allow-Origin "https://johka.be"
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
-        Access-Control-Allow-Headers "Authorization, Content-Type"
+        Access-Control-Allow-Headers "Authorization, Content-Type, adminkey"
         defer
     }
 

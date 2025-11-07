@@ -87,9 +87,9 @@ def _preview_url(filename: Optional[str]) -> Optional[str]:
 
 ADMIN_KEY = os.getenv("ADMIN_KEY", "Admin")
 
-def verify_admin(Adminkey: str = Header(None), key: str = None):
+def verify_admin(adminkey: str = Header(None), key: str = None):
     """Controleer of geldige admin key is meegegeven"""
-    if Adminkey == ADMIN_KEY or key == ADMIN_KEY:
+    if adminkey == ADMIN_KEY or key == ADMIN_KEY:
         return True
     raise HTTPException(status_code=403, detail="Geen toegang: ongeldige admin key")
 
@@ -112,16 +112,7 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    # Browsers vereisen dat custom headers expliciet vermeld worden.
-    allow_headers=[
-        "Adminkey",
-        "Content-Type",
-        "Authorization",
-        "Accept",
-        "Origin",
-        "User-Agent",
-        "X-Requested-With",
-    ],
+    allow_headers=["*"],
     expose_headers=["*"],  # 👈 belangrijk: laat JS de response lezen
 )
 # 👇 serveer statische bestanden (previews, avatars, ...)
