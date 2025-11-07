@@ -112,7 +112,16 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    # Browsers vereisen dat custom headers expliciet vermeld worden.
+    allow_headers=[
+        "Adminkey",
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "X-Requested-With",
+    ],
     expose_headers=["*"],  # 👈 belangrijk: laat JS de response lezen
 )
 # 👇 serveer statische bestanden (previews, avatars, ...)
