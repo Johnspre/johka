@@ -114,6 +114,21 @@
       }
     }
 
+    function formatReason(reason) {
+      if (!reason) return "Onbekend";
+      if (reason === "mollie") return "💳 Opwaardering";
+      if (reason.startsWith("tip:sent:")) {
+        const target = reason.split(":").slice(2).join(":") || "onbekend";
+        return `🎁 Tip verstuurd naar ${target}`;
+      }
+      if (reason.startsWith("tip:received:")) {
+        const sender = reason.split(":").slice(2).join(":") || "onbekend";
+        return `🎉 Tip ontvangen van ${sender}`;
+      }
+      return reason;
+    }
+
+
     // 💰 Saldo ophalen
     async function fetchWallet() {
       const token = localStorage.getItem("token");
@@ -151,7 +166,7 @@
         for (const t of list) {
           const tr = document.createElement("tr");
           const sign = t.change > 0 ? "+" : "";
-          const reason = t.reason === "mollie" ? "💳 Opwaardering" : t.reason;
+          const reason = formatReason(t.reason);
           tr.innerHTML = `
             <td>${new Date(t.created_at).toLocaleString()}</td>
             <td>${reason}</td>

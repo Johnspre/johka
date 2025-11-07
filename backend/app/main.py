@@ -948,6 +948,22 @@ def send_tip(data: TipIn, user: UserDB = Depends(get_current_user), s: Session =
 
     t = Tip(from_user_id=user.id, to_user_id=target.id, amount=data.amount)
     s.add(t)
+
+    s.add_all(
+        [
+            WalletHistory(
+                user_id=user.id,
+                change=-data.amount,
+                reason=f"tip:sent:{target.username}",
+            ),
+            WalletHistory(
+                user_id=target.id,
+                change=data.amount,
+                reason=f"tip:received:{user.username}",
+            ),
+        ]
+    )
+
     s.commit()
 
     return {
