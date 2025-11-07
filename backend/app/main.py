@@ -1138,12 +1138,26 @@ def create_payment(data: dict, user: UserDB = Depends(get_current_user)):
         amount = data.get("amount", 0)
         if amount < 1:
             raise HTTPException(400, "Ongeldig bedrag")
+        redirect_origin = (data.get("redirect_origin") or "https://johka.be").strip()
+        allowed_origins = {
+            "https://johka.be",
+            "https://www.johka.be",
+            "https://api.johka.be",
+            "http://localhost:8000",
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        }
+        if redirect_origin not in allowed_origins:
+            redirect_origin = "https://johka.be"
+
+        redirect_url = redirect_origin.rstrip("/") + "/wallet.html?success=1"
 
         # Maak betaling aan bij Mollie
         payment = mollie.payments.create({
             "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
             "description": f"Opwaarderen Johka Wallet ({user.username})",
-            "redirectUrl": f"https://johka.be/wallet.html?success=1",
+            "redirectUrl": redirect_url,
             "webhookUrl": f"https://api.johka.be/api/wallet/webhook",
             "metadata": {"user_id": user.id}
         })
