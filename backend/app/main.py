@@ -161,6 +161,14 @@ class Wallet(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     owner = relationship("UserDB", back_populates="wallet")
 
+class WalletHistory(Base):
+    __tablename__ = "wallet_history"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    change = Column(Integer, nullable=False)
+    reason = Column(String, default="mollie")
+    created_at = Column(DateTime, server_default=func.now())
+
 
 class Tip(Base):
     __tablename__ = "tips"
@@ -1198,7 +1206,7 @@ def current_user(Authorization: str = Header(None), s: Session = Depends(db)):
         raise HTTPException(status_code=401, detail="Geen identity in LiveKit-token")
 
     # Haal gebruiker op uit DB
-    user = s.query(User).filter_by(username=identity).first()
+    user = s.query(UserDB).filter_by(username=identity).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"Gebruiker '{identity}' niet gevonden")
 
@@ -1209,7 +1217,7 @@ def current_user(Authorization: str = Header(None), s: Session = Depends(db)):
 # 💾 Transactiegeschiedenis ophalen
 # ============================================
 @app.get("/api/wallet/history")
-def wallet_history(user = Depends(current_user), s: Session = Depends(db)):
+def wallet_history(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
 
     """
     Geef laatste transacties (wallet_history) van de huidige gebruiker terug.
