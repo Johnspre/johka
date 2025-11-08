@@ -17,6 +17,10 @@ def app_module(tmp_path, monkeypatch):
     db_url = f"sqlite:///{tmp_path/'test.db'}"
     monkeypatch.setenv("SQLALCHEMY_URL", db_url)
     monkeypatch.setenv("PSYCOPG_URL", db_url)
+    monkeypatch.setenv("POSTGRES_PASSWORD", "test-password")
+    monkeypatch.setenv("ADMIN_KEY", "test-admin")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-livekit-secret")
+    monkeypatch.setenv("REDIS_PASSWORD", "test-redis-password")
 
     from backend.app import main
 

@@ -14,6 +14,7 @@ python-jose
 livekit-api==1.0.7
 mollie-api-python
 httpx
+python-dotenv
 
 
 

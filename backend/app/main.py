@@ -13,6 +13,8 @@ from io import BytesIO
 from datetime import datetime
 from typing import Optional, List
 
+from dotenv import load_dotenv
+
 # ---------- FastAPI & Security ----------
 from fastapi import (
     FastAPI, Depends, HTTPException, status, Header,
@@ -44,32 +46,46 @@ from PIL import Image
 #from livekit import AccessToken, VideoGrant
 from fastapi.staticfiles import StaticFiles
 
+load_dotenv()
+
+
+def _get_env(name: str, default: Optional[str] = None, *, required: bool = False) -> Optional[str]:
+    value = os.getenv(name, default)
+    if required and (value is None or value == ""):
+        raise RuntimeError(f"Environment variable '{name}' is required")
+    return value
+
+
 app = FastAPI(title="Johka Live API", version="1.0")
 
 
 # ============================================
 # ENV & CONFIG
 # ============================================
-JWT_SECRET = os.getenv("JWT_SECRET", "MyUltraSecretKey")
+JWT_SECRET = _get_env("JWT_SECRET", "MyUltraSecretKey")
 JWT_ALGORITHM = "HS256"
 
 # DB (Docker service 'postgres' in compose)
-SQLALCHEMY_URL = os.getenv(
-    "SQLALCHEMY_URL",
-    "postgresql+psycopg2://johka:SuperSterkWachtwoord123@postgres:5432/johka",
+POSTGRES_USER = _get_env("POSTGRES_USER", "johka")
+POSTGRES_PASSWORD = _get_env("POSTGRES_PASSWORD", required=True)
+POSTGRES_HOST = _get_env("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = _get_env("POSTGRES_PORT", "5432")
+POSTGRES_DB = _get_env("POSTGRES_DB", "johka")
+
+SQLALCHEMY_URL = _get_env("SQLALCHEMY_URL") or (
+    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
-PSYCOPG_URL = os.getenv(
-    "PSYCOPG_URL",
-    "postgresql://johka:SuperSterkWachtwoord123@postgres:5432/johka",
+PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
+    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
 # LiveKit
-LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "johka_live_key")
-LIVEKIT_API_SECRET = os.getenv(
-    "LIVEKIT_API_SECRET",
-    "d7f6c8b14d3a4e52b9e8a6f9c1b7a3d5f4e2a8c6d9b3f1e4a7c2b5e6d8a9f3c1",
-)
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "wss://live.johka.be")
+LIVEKIT_API_KEY = _get_env("LIVEKIT_API_KEY", "johka_live_key")
+LIVEKIT_API_SECRET = _get_env("LIVEKIT_API_SECRET", required=True)
+LIVEKIT_URL = _get_env("LIVEKIT_URL", "wss://live.johka.be")
+
 
 # Upload dirs
 UPLOAD_ROOT = "/app/static/uploads"
@@ -85,7 +101,7 @@ def _preview_url(filename: Optional[str]) -> Optional[str]:
         return None
     return f"https://api.johka.be/static/uploads/previews/{filename}"
 
-ADMIN_KEY = os.getenv("ADMIN_KEY", "Admin")
+ADMIN_KEY = _get_env("ADMIN_KEY", required=True)
 
 def verify_admin(adminkey: str = Header(None), key: str = None):
     """Controleer of geldige admin key is meegegeven"""
@@ -166,7 +182,7 @@ class Wallet(Base):
     __tablename__ = "wallets"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    balance = Column(Integer, default=100)
+    balance = Column(Integer, default=0)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     owner = relationship("UserDB", back_populates="wallet")
 
@@ -441,13 +457,7 @@ def get_room(slug: str, s: Session = Depends(db)):
 # =========================================================
 # 🎥 LIVEKIT TOKEN GENERATOR (v3 – compatibel met LiveKit 1.9.x)
 # =========================================================
-from uuid import uuid4
-import time, os, jwt
-from fastapi import Depends
 
-LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "johka_live_key")
-LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "d7f6c8b14d3a4e52b9e8a6f9c1b7a3d5f4e2a8c6d9b3f1e4a7c2b5e6d8a9f3c1")
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "wss://live.johka.be")
 
 class LivekitTokenRequest(BaseModel):
     room_slug: Optional[str] = None
@@ -1076,10 +1086,10 @@ try:
     from redis.asyncio import Redis
     from redis.exceptions import RedisError
 
-    REDIS_URL = os.getenv("REDIS_URL")
-    REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "SuperSterkWachtwoord123")
+    REDIS_URL = _get_env("REDIS_URL")
+    REDIS_HOST = _get_env("REDIS_HOST", "redis")
+    REDIS_PORT = int(_get_env("REDIS_PORT", "6379"))
+    REDIS_PASSWORD = _get_env("REDIS_PASSWORD", required=True)
 
     if REDIS_URL:
         redis = Redis.from_url(REDIS_URL, decode_responses=True)
