@@ -10,7 +10,7 @@ import time
 import base64
 import shutil
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List
 
 from dotenv import load_dotenv
@@ -27,8 +27,19 @@ from fastapi import Header
 # ---------- DB ----------
 import psycopg2
 from sqlalchemy import (
-    create_engine, Column, Integer, String, DateTime, func,
-    ForeignKey, UniqueConstraint, text, or_, Text,
+    create_engine,
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Date,
+    Boolean,
+    func,
+    ForeignKey,
+    UniqueConstraint,
+    text,
+    or_,
+    Text,
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 from sqlalchemy.exc import IntegrityError
@@ -160,6 +171,9 @@ class UserDB(Base):
     username = Column(String(32), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
+    birthdate = Column(Date, nullable=True)
+    verify_token = Column(String(255), unique=True, nullable=True)
+    is_verified = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     bio = Column(Text, nullable=True, default="")
     # dynamic columns (avatar_url, gallery_json, wallet_balance) kunnen later via ALTER worden toegevoegd
@@ -329,6 +343,17 @@ def on_startup():
     with SessionLocal() as s:
         try:
             s.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT"))
+            s.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS birthdate DATE"))
+            s.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token VARCHAR(255)"
+                )
+            )
+            s.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE"
+                )
+            )
             s.commit()
         except Exception:
             s.rollback()
@@ -350,7 +375,7 @@ def health():
 # ============================================
 # 🧩 Registratie + e-mailverificatie + login
 # ============================================
-from datetime import date
+
 import secrets, asyncio, os
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from fastapi import HTTPException, Depends
@@ -412,17 +437,17 @@ async def register_user(data: dict, s: Session = Depends(db)):
         raise HTTPException(status_code=400, detail="Je moet minstens 18 jaar oud zijn.")
 
     # ✅ Controle: dubbele gebruikers
-    if s.query(User).filter_by(email=data["email"]).first():
+    if s.query(UserDB).filter_by(email=data["email"]).first():
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd.")
-    if s.query(User).filter_by(username=data["username"]).first():
+    if s.query(UserDB).filter_by(username=data["username"]).first():
         raise HTTPException(status_code=400, detail="Gebruikersnaam is al in gebruik.")
 
     # ✅ Nieuw account
     token = secrets.token_urlsafe(32)
-    user = User(
+    user = UserDB(
         username=data["username"],
         email=data["email"],
-        hashed_pw=hash_password(data["password"]),
+        password_hash=hash_password(data["password"]),
         birthdate=geboortedatum,
         verify_token=token,
         is_verified=False,
@@ -456,7 +481,7 @@ Als jij dit niet was, negeer dan deze mail."""
 # ============================================
 @app.get("/api/verify-email")
 def verify_email(token: str, s: Session = Depends(db)):
-    user = s.query(User).filter_by(verify_token=token).first()
+    user = s.query(UserDB).filter_by(verify_token=token).first()
     if not user:
         raise HTTPException(status_code=400, detail="Ongeldige of verlopen verificatielink.")
     user.is_verified = True
@@ -470,8 +495,8 @@ def verify_email(token: str, s: Session = Depends(db)):
 # ============================================
 @app.post("/api/login")
 def login_user(data: dict, s: Session = Depends(db)):
-    user = s.query(User).filter_by(username=data["username"]).first()
-    if not user or not verify_password(data["password"], user.hashed_pw):
+    user = s.query(UserDB).filter_by(username=data["username"]).first()
+    if not user or not verify_password(data["password"], user.password_hash):
         raise HTTPException(status_code=400, detail="Ongeldige login.")
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Verifieer eerst je e-mailadres.")
