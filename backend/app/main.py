@@ -347,46 +347,137 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/api/register", response_model=MeOut)
-def register(payload: RegisterIn, s: Session = Depends(db)):
-    if len(payload.username) < 3 or len(payload.password) < 6:
-        raise HTTPException(400, "Ongeldige invoer")
-    u = UserDB(
-        username=payload.username.strip(),
-        email=payload.email.strip().lower(),
-        password_hash=hash_password(payload.password),
+# ============================================
+# 🧩 Registratie + e-mailverificatie + login
+# ============================================
+from datetime import date
+import secrets, asyncio, os
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi import HTTPException, Depends
+from sqlalchemy.orm import Session
+
+# 📨 Mailconfig (leest uit .env)
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("SMTP_USER"),
+    MAIL_PASSWORD=os.getenv("SMTP_PASS"),
+    MAIL_FROM=os.getenv("SMTP_FROM", "noreply@johka.be"),
+    MAIL_PORT=int(os.getenv("SMTP_PORT", 2525)),
+    MAIL_SERVER=os.getenv("SMTP_HOST", "sandbox.smtp.mailtrap.io"),
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True,
+)
+
+
+def bereken_leeftijd(geboortedatum):
+    vandaag = date.today()
+    return vandaag.year - geboortedatum.year - (
+        (vandaag.month, vandaag.day) < (geboortedatum.month, geboortedatum.day)
     )
-    s.add(u)
+# ============================================
+# 📧 TEST ENDPOINT MAILTRAP
+# ============================================
+
+@app.get("/api/test-mail")
+async def test_mail():
     try:
-        s.flush()
-    except IntegrityError:
-        s.rollback()
-        raise HTTPException(409, "Username of email bestaat al")
+        fm = FastMail(conf)
+        msg = MessageSchema(
+            subject="✅ Testmail van Johka",
+            recipients=["test@johka.be"],
+            body="Als je dit bericht ziet in Mailtrap, werkt je SMTP-config perfect!",
+            subtype="plain",
+        )
+        await fm.send_message(msg)
+        return {"status": "ok", "message": "Testmail verzonden (check Mailtrap inbox)."}
+    except Exception as e:
+        print(f"❌ Mailfout: {e}")
+        return {"status": "error", "detail": str(e)}
 
-    slug = base = slugify(payload.username)
-    i = 1
-    while s.query(RoomDB).filter_by(slug=slug).first() is not None:
-        i += 1
-        slug = f"{base}-{i}"
-    r = RoomDB(user_id=u.id, name=f"{u.username}'s room", slug=slug)
-    s.add(r)
-    s.commit()
-    return MeOut(
-        id=u.id,
-        username=u.username,
-        email=u.email,
-        bio=u.bio or "",
-        room_slug=r.slug,
+# ============================================
+# 🧠 REGISTRATIE
+# ============================================
+@app.post("/api/register")
+async def register_user(data: dict, s: Session = Depends(db)):
+    # ✅ Controle: wachtwoorden moeten overeenkomen
+    if data["password"] != data.get("password2"):
+        raise HTTPException(status_code=400, detail="Wachtwoorden komen niet overeen.")
+
+    # ✅ Controle: leeftijd
+    geboortedatum_str = data.get("birthdate")
+    if not geboortedatum_str:
+        raise HTTPException(status_code=400, detail="Geboortedatum ontbreekt.")
+    geboortedatum = date.fromisoformat(geboortedatum_str)
+    if bereken_leeftijd(geboortedatum) < 18:
+        raise HTTPException(status_code=400, detail="Je moet minstens 18 jaar oud zijn.")
+
+    # ✅ Controle: dubbele gebruikers
+    if s.query(User).filter_by(email=data["email"]).first():
+        raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd.")
+    if s.query(User).filter_by(username=data["username"]).first():
+        raise HTTPException(status_code=400, detail="Gebruikersnaam is al in gebruik.")
+
+    # ✅ Nieuw account
+    token = secrets.token_urlsafe(32)
+    user = User(
+        username=data["username"],
+        email=data["email"],
+        hashed_pw=hash_password(data["password"]),
+        birthdate=geboortedatum,
+        verify_token=token,
+        is_verified=False,
     )
+    s.add(user)
+    s.commit()
+
+    # ✅ Verificatie-mail versturen
+    link = f"https://api.johka.be/api/verify-email?token={token}"
+    body = f"""Welkom bij Johka Live!
+
+Klik op onderstaande link om je e-mail te bevestigen:
+{link}
+
+Als jij dit niet was, negeer dan deze mail."""
+
+    fm = FastMail(conf)
+    msg = MessageSchema(
+        subject="Bevestig je Johka-account",
+        recipients=[user.email],
+        body=body,
+        subtype="plain",
+    )
+    asyncio.create_task(fm.send_message(msg))
+
+    return {"status": "pending", "message": "Verificatiemail verzonden. Controleer je inbox!"}
 
 
+# ============================================
+# ✉️ E-MAIL VERIFICATIE
+# ============================================
+@app.get("/api/verify-email")
+def verify_email(token: str, s: Session = Depends(db)):
+    user = s.query(User).filter_by(verify_token=token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Ongeldige of verlopen verificatielink.")
+    user.is_verified = True
+    user.verify_token = None
+    s.commit()
+    return {"status": "ok", "message": "E-mail succesvol geverifieerd!"}
+
+
+# ============================================
+# 🔐 LOGIN
+# ============================================
 @app.post("/api/login")
-def login(payload: LoginIn, s: Session = Depends(db)):
-    u = s.query(UserDB).filter(UserDB.username == payload.username.strip()).first()
-    if not u or not verify_password(payload.password, u.password_hash):
-        raise HTTPException(401, "Ongeldige login")
-    token = create_access_token({"sub": str(u.id), "username": u.username})
-    return {"access_token": token, "token_type": "bearer"}
+def login_user(data: dict, s: Session = Depends(db)):
+    user = s.query(User).filter_by(username=data["username"]).first()
+    if not user or not verify_password(data["password"], user.hashed_pw):
+        raise HTTPException(status_code=400, detail="Ongeldige login.")
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Verifieer eerst je e-mailadres.")
+    token = generate_jwt_token(user)
+    return {"status": "ok", "token": token, "username": user.username}
+
 
 
 @app.get("/api/me", response_model=MeOut)

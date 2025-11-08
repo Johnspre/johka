@@ -20,6 +20,9 @@
       <label for="password">Wachtwoord:</label>
       <input type="password" id="password" name="password" placeholder="Kies een sterk wachtwoord" required>
 
+      <label for="password2">Herhaal wachtwoord:</label>
+      <input type="password" id="password2" name="password2" placeholder="Herhaal je wachtwoord" required>
+
       <button type="submit">Registreren</button>
       <p id="msg"></p>
     </form>
@@ -37,6 +40,42 @@
     </section>
   </div>
 
-  <script src="/js/auth.js"></script>
+  <script>
+  document.getElementById("regForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("msg");
+    msg.textContent = "";
+
+    const pw1 = document.getElementById("password").value;
+    const pw2 = document.getElementById("password2").value;
+    if (pw1 !== pw2) {
+      msg.style.color = "red";
+      msg.textContent = "❌ Wachtwoorden komen niet overeen.";
+      return;
+    }
+
+    const data = {
+      username: document.getElementById("username").value,
+      email: document.getElementById("email").value,
+      password: pw1,
+      password2: pw2,
+    };
+
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+      msg.style.color = res.ok ? "green" : "red";
+      msg.textContent = json.message || json.detail || "Onbekende fout.";
+    } catch (err) {
+      msg.style.color = "red";
+      msg.textContent = "Serverfout, probeer later opnieuw.";
+    }
+  });
+  </script>
 </body>
 </html>
