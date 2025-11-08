@@ -17,6 +17,9 @@
       <label for="email">E-mailadres:</label>
       <input type="email" id="email" name="email" placeholder="naam@voorbeeld.com" required>
 
+      <label for="birthdate">Geboortedatum:</label>
+      <input type="date" id="birthdate" name="birthdate" required>
+
       <label for="password">Wachtwoord:</label>
       <input type="password" id="password" name="password" placeholder="Kies een sterk wachtwoord" required>
 
@@ -33,9 +36,9 @@
 
     <hr style="margin: 25px 0; border: 0; border-top: 1px solid #ddd;">
     <section id="extra">
-      <h3 style="color:#ff7300; font-size:1rem;">Leeftijdsverificatie (binnenkort beschikbaar)</h3>
+      <h3 style="color:#ff7300; font-size:1rem;">Leeftijdsverificatie</h3>
       <p style="font-size:14px; color:#666;">
-        We vragen binnenkort een eenvoudige leeftijdscheck om Johka Live veilig te houden.
+        Vul je geboortedatum in. Je moet minstens 18 jaar oud zijn om een account aan te maken.
       </p>
     </section>
   </div>
@@ -57,12 +60,13 @@
     const data = {
       username: document.getElementById("username").value,
       email: document.getElementById("email").value,
+      birthdate: document.getElementById("birthdate").value,
       password: pw1,
       password2: pw2,
     };
 
     try {
-      const res = await fetch("/api/register", {
+      const res = await fetch("https://api.johka.be/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
