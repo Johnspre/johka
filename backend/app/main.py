@@ -1461,28 +1461,45 @@ async def mollie_webhook(request: Request, s: Session = Depends(db)):
 
     return {"status": "ok"}
 
-# ✅ 1. Alle users en hun saldo
+from fastapi import HTTPException, Request, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+# ✅ 1. Gebruikerslijst met wallet-saldo
 @app.get("/api/admin/users")
-def admin_users(s: Session = Depends(db), auth=Depends(verify_admin)):
+def admin_users(request: Request, s: Session = Depends(db)):
+    key = request.headers.get("adminkey")
+    if key != os.getenv("ADMIN_KEY"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     rows = s.execute(text("""
-        SELECT u.id, u.username, w.balance
+        SELECT u.id, u.username, u.email, COALESCE(w.balance, 0) AS balance
         FROM users u
-        LEFT JOIN wallets w ON w.user_id = u.id
-        ORDER BY u.id
+        LEFT JOIN wallets w ON u.id = w.user_id
+        ORDER BY u.id ASC;
     """)).fetchall()
-    return [{"id": r.id, "username": r.username, "balance": r.balance or 0} for r in rows]
+
+    return [
+        {"id": r.id, "username": r.username, "email": r.email, "balance": r.balance}
+        for r in rows
+    ]
 
 
-# ✅ 2. Transactielog opvragen
+# ✅ 2. Transactiegeschiedenis (wallet_history)
 @app.get("/api/admin/history")
-def admin_history(s: Session = Depends(db), auth=Depends(verify_admin)):
+def admin_history(request: Request, s: Session = Depends(db)):
+    key = request.headers.get("adminkey")
+    if key != os.getenv("ADMIN_KEY"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     rows = s.execute(text("""
-        SELECT h.id, u.username, h.change, h.reason, h.created_at
+        SELECT h.id, u.username, h."change", h.reason, h.created_at
         FROM wallet_history h
         JOIN users u ON u.id = h.user_id
         ORDER BY h.created_at DESC
-        LIMIT 100
+        LIMIT 100;
     """)).fetchall()
+
     return [
         {
             "id": r.id,
@@ -1490,26 +1507,33 @@ def admin_history(s: Session = Depends(db), auth=Depends(verify_admin)):
             "change": r.change,
             "reason": r.reason,
             "created_at": r.created_at
-        } for r in rows
+        }
+        for r in rows
     ]
 
 
-# ✅ 3. Tokens handmatig aanpassen
+# ✅ 3. Tokens toevoegen via admin
 @app.post("/api/admin/add-tokens")
-def admin_add_tokens(data: dict, s: Session = Depends(db), auth=Depends(verify_admin)):
-    user_id = data.get("user_id")
-    amount = data.get("amount")
-    if not user_id or not amount:
-        raise HTTPException(status_code=400, detail="user_id en amount vereist")
+def admin_add_tokens(payload: dict, request: Request, s: Session = Depends(db)):
+    key = request.headers.get("adminkey")
+    if key != os.getenv("ADMIN_KEY"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    user_id = payload.get("user_id")
+    amount = int(payload.get("amount", 0))
+    if not user_id or amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount or user_id")
 
     wallet = s.query(Wallet).filter_by(user_id=user_id).first()
     if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet niet gevonden")
+        raise HTTPException(status_code=404, detail="Wallet not found")
 
-    wallet.balance += int(amount)
-    s.add(WalletHistory(user_id=user_id, change=amount, reason="admin-aanpassing"))
+    wallet.balance += amount
+    s.add(WalletHistory(user_id=user_id, change=amount, reason="admin"))
     s.commit()
-    return {"status": "ok", "new_balance": wallet.balance}
+
+    return {"status": "ok", "message": f"{amount} tokens toegevoegd aan user {user_id}"}
+
 
 # =============================================
 # 🩺 HEALTHCHECK ENDPOINT
