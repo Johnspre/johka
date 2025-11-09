@@ -29,6 +29,7 @@
       <div id="liveDot"></div>
       <span id="status">verbonden: nee</span>
       <span>👀 <span id="viewCount">0</span></span>
+      <strong>Room Subject:</strong> My room <button id="editRoomBtn" onclick="editRoomSubject()">Edit</button>
     </div>
     <div class="right">💸 <span id="tipTotalBar">0</span> tokens</div>
   </div>
@@ -41,7 +42,8 @@
 <div id="broadcastSetup">
   <div class="setup-left">
 
-    <p><strong>Room Subject:</strong> My room <button class="edit-btn">Edit</button></p>
+    
+</p>
     <p>You must submit age verification to receive tokens.</p>
 
     <label>Camera</label>
@@ -167,6 +169,37 @@
         status.style.color = "var(--muted)";
       }
     };
+  </script>
+  <script>
+    async function editRoomSubject() {
+  const roomId = window.roomId || localStorage.getItem("room_id");
+  if (!roomId) return alert("Geen actieve room gevonden.");
+
+  const newSubj = prompt("Nieuw onderwerp:", document.getElementById("roomSubject").textContent);
+  if (newSubj === null) return;
+
+  const res = await fetch("/api/room/set-subject", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room_id: roomId, subject: newSubj })
+  });
+
+  if (!res.ok) return alert("Fout bij aanpassen onderwerp.");
+  const data = await res.json();
+  document.getElementById("roomSubject").textContent = data.subject;
+}
+
+async function stopBroadcasting() {
+  const roomId = window.roomId || localStorage.getItem("room_id");
+  await fetch("/api/room/reset-subject", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room_id: roomId })
+  });
+  // eventueel UI terugzetten
+  document.getElementById("roomSubject").textContent = "My room";
+}
+
   </script>
   <!-- Emoticons Script -->
 <script src="https://cdn.jsdelivr.net/npm/emoji-button@4.6.2/dist/index.min.js"></script>

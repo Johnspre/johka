@@ -1525,6 +1525,7 @@ async def reset_password(req: dict, s: Session = Depends(db)):
     return {"detail": "Wachtwoord succesvol gewijzigd"}
 
 
+
 # =============================================
 # 🩺 HEALTHCHECK ENDPOINT
 # =============================================
