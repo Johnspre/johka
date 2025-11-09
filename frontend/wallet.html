@@ -168,11 +168,17 @@
       document.getElementById("tokenModal").classList.remove("hidden");
     }
 
-    async function createPayment(tokens) {
+    async function createPayment({ tokens, price }) {
       const tokenAmount = Number(tokens);
+      const euroAmount = Number(price);
       if (!Number.isFinite(tokenAmount) || tokenAmount <= 0) {
         console.error("Ongeldig tokenbedrag ontvangen voor betaling:", tokens);
         alert("❌ Ongeldig tokenbedrag geselecteerd.");
+        return;
+      }
+      if (!Number.isFinite(euroAmount) || euroAmount <= 0) {
+        console.error("Ongeldig eurobedrag ontvangen voor betaling:", price);
+        alert("❌ Ongeldig bedrag geselecteerd.");
         return;
       }
       const token = localStorage.getItem("token");
@@ -180,11 +186,21 @@
       const res = await fetch(`${API}/wallet/create-payment`, {
         method: "POST",
         headers: { "Content-Type":"application/json", "Authorization":"Bearer " + token },
-        body: JSON.stringify({ amount: tokenAmount, redirect_origin: window.location.origin })
+        body: JSON.stringify({
+          amount: euroAmount,
+          tokens: tokenAmount,
+          redirect_origin: window.location.origin
+        })
       });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Foutmelding backend:", res.status, errorText);
+        alert("❌ Fout bij starten betaling");
+        return;
+      }
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
       } else {
         console.error("Backend-respons:", data);
         alert("❌ Fout bij starten betaling");
@@ -194,14 +210,14 @@
 
     function initTokenModal() {
       const list = document.getElementById("tokenList");
-      list.innerHTML = tokenPackages.map(p => 
-        `<li data-tokens="${p.tokens}">${p.tokens} tokens voor €${p.price.toFixed(2)} (${p.bonus} bonus)</li>`
+      list.innerHTML = tokenPackages.map(p =>
+        `<li data-tokens="${p.tokens}" data-price="${p.price}">${p.tokens} tokens voor €${p.price.toFixed(2)} (${p.bonus} bonus)</li>`
       ).join("");
       list.addEventListener("click", e => {
         const li = e.target.closest("li");
         if (li) {
           document.getElementById("tokenModal").classList.add("hidden");
-          createPayment(li.dataset.tokens);
+          createPayment({ tokens: li.dataset.tokens, price: li.dataset.price });
         }
       });
       document.getElementById("closeModal").addEventListener("click", ()=> {
