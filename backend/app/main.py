@@ -275,6 +275,15 @@ def create_access_token(payload: dict, expires_seconds: int = 60 * 60 * 12) -> s
     to_encode = {"iat": now, "nbf": now, "exp": now + expires_seconds, **payload}
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
+def generate_jwt_token(user: "UserDB") -> str:
+    """Create a JWT for the given user.
+
+    Returns a standard access token containing the user id (``sub``) and
+    username so both legacy and new flows can rely on the same helper name.
+    """
+
+    return create_access_token({"sub": str(user.id), "username": user.username})
+
 
 def _psql():
     return psycopg2.connect(PSYCOPG_URL)
@@ -360,7 +369,7 @@ def on_startup():
         users = s.query(UserDB).all()
         for u in users:
             if not u.wallet:
-                s.add(Wallet(user_id=u.id, balance=100))
+                s.add(Wallet(user_id=u.id, balance=0))
         s.commit()
 
 
@@ -383,11 +392,11 @@ from sqlalchemy.orm import Session
 
 # 📨 Mailconfig (leest uit .env)
 conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("SMTP_USER"),
-    MAIL_PASSWORD=os.getenv("SMTP_PASS"),
-    MAIL_FROM=os.getenv("SMTP_FROM", "noreply@johka.be"),
-    MAIL_PORT=int(os.getenv("SMTP_PORT", 2525)),
-    MAIL_SERVER=os.getenv("SMTP_HOST", "sandbox.smtp.mailtrap.io"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM", "noreply@johka.be"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp-auth.mailprotect.be"),
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
@@ -501,7 +510,12 @@ def login_user(data: dict, s: Session = Depends(db)):
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Verifieer eerst je e-mailadres.")
     token = generate_jwt_token(user)
-    return {"status": "ok", "token": token, "username": user.username}
+    return {
+        "status": "ok",
+        "access_token": token,
+        "token": token,
+        "username": user.username,
+    }
 
 
 
@@ -1035,7 +1049,7 @@ def public_creator(username: str, s: Session = Depends(db)):
 def get_wallet(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
     w = s.query(Wallet).filter_by(user_id=user.id).first()
     if not w:
-        w = Wallet(user_id=user.id, balance=100)
+        w = Wallet(user_id=user.id, balance=0)
         s.add(w)
         s.commit()
     return {"username": user.username, "balance": w.balance}

@@ -102,9 +102,11 @@
         `;
         document.body.prepend(banner);
         fetchWallet(); // saldo refreshen
+        fetchHistory(); // transactielijst ook vernieuwen
         setTimeout(() => {
-          history.replaceState(null, "", window.location.pathname);
+          window.history.go(-2); // terug naar 2 pagina’s geleden
         }, 3000);
+
       };
 
       if (document.readyState === "loading") {
