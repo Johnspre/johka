@@ -172,8 +172,61 @@
     };
   </script>
   <script>
+    async function ensureRoomContext() {
+      if (window.roomId) return window.roomId;
+
+      const stored = localStorage.getItem("room_id");
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        window.roomId = Number.isNaN(parsed) ? stored : parsed;
+        return window.roomId;
+      }
+
+      const token = localStorage.getItem("token");
+      if (!token) return null;
+
+      try {
+        const res = await fetch("https://api.johka.be/api/livekit-token", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: "{}"
+        });
+
+        if (!res.ok) throw new Error("Kon roomgegevens niet ophalen");
+        const data = await res.json();
+
+        if (data.room_id) {
+          window.roomId = data.room_id;
+          try {
+            localStorage.setItem("room_id", String(data.room_id));
+          } catch {}
+        }
+
+        const subject = data.room_subject || data.room_name;
+        if (subject) {
+          const subjectEl = document.getElementById("roomSubject");
+          if (subjectEl) subjectEl.textContent = subject;
+          window.roomCurrentSubject = subject;
+        }
+
+        if (data.room_name) {
+          window.roomDefaultSubject = data.room_name;
+        }
+
+        return window.roomId || null;
+      } catch (err) {
+        console.warn("Kon roomcontext niet vaststellen", err);
+        return null;
+      }
+    }
     async function editRoomSubject() {
-  const roomId = window.roomId || localStorage.getItem("room_id");
+      let roomId = window.roomId || localStorage.getItem("room_id");
+      if (!roomId) {
+        roomId = await ensureRoomContext();
+      }
       if (!roomId) return alert("Geen actieve room gevonden.");
 
       const newSubj = prompt("Nieuw onderwerp:", document.getElementById("roomSubject").textContent);
@@ -206,6 +259,10 @@
       if (subjectEl) subjectEl.textContent = fallbackSubject;
       window.roomCurrentSubject = fallbackSubject;
     }
+    document.addEventListener("DOMContentLoaded", () => {
+      ensureRoomContext();
+    });
+
 
   </script>
   <!-- Emoticons Script -->
