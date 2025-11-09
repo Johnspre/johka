@@ -33,6 +33,11 @@ let livekitRoomName = null;
 let liveRoomSlug = null;
 let authToken = null;
 let storedUsername = null;
+let defaultRoomSubject = "My room";
+let currentRoomSubject = defaultRoomSubject;
+
+window.roomDefaultSubject = defaultRoomSubject;
+window.roomCurrentSubject = currentRoomSubject;
 
 function getParticipantKey(participant) {
   if (!participant) return null;
@@ -243,6 +248,53 @@ function attachVideo(videoTrack, identity) {
   video.srcObject = stream;
   el("remoteArea")?.appendChild(video);
 }
+function applyRoomMetadata(meta = {}) {
+  if (!meta || typeof meta !== "object") return;
+
+  const slugFromResponse =
+    typeof meta.room_slug === "string" && meta.room_slug.trim()
+      ? meta.room_slug.trim()
+      : typeof meta.room === "string"
+        ? meta.room.replace(/-room$/, "").trim()
+        : null;
+
+  if (slugFromResponse) {
+    liveRoomSlug = slugFromResponse;
+    window.liveRoomSlug = liveRoomSlug;
+  }
+
+  if (meta.room_id !== undefined && meta.room_id !== null && meta.room_id !== "") {
+    window.roomId = meta.room_id;
+    try {
+      localStorage.setItem("room_id", String(meta.room_id));
+    } catch (err) {
+      console.warn("Kon room_id niet opslaan in localStorage:", err);
+    }
+  }
+
+  if (typeof meta.room_name === "string" && meta.room_name.trim()) {
+    defaultRoomSubject = meta.room_name.trim();
+  }
+
+  let nextSubject = null;
+  if (typeof meta.room_subject === "string" && meta.room_subject.trim()) {
+    nextSubject = meta.room_subject.trim();
+  } else if (typeof meta.room_name === "string" && meta.room_name.trim()) {
+    nextSubject = meta.room_name.trim();
+  }
+
+  if (nextSubject) {
+    currentRoomSubject = nextSubject;
+    const subjectEl = el("roomSubject");
+    if (subjectEl) subjectEl.textContent = nextSubject;
+  }
+
+  window.roomDefaultSubject = defaultRoomSubject;
+  window.roomCurrentSubject = currentRoomSubject;
+  if (slugFromResponse) {
+    window.roomSlug = slugFromResponse;
+  }
+}
 
 // ========== INIT ==========
 async function init() {
@@ -267,10 +319,15 @@ async function init() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
+    if (data && !data.room_slug) {
+      const inferredSlug = typeof data.room === "string" ? data.room.replace(/-room$/, "").trim() : null;
+      if (inferredSlug) data.room_slug = inferredSlug;
+    }
     lkToken = data.token;
     livekitRoomName = data.room || null;
-    liveRoomSlug = (data.room || "").replace(/-room$/, "") || null;
+    liveRoomSlug = data.room_slug || liveRoomSlug;
     livekitUrl = data.url || DEFAULT_LIVEKIT_URL;
+    applyRoomMetadata(data);
     console.log("🎬 LiveKit token ontvangen:", data);
   } catch (err) {
     addMsg(`❌ Token ophalen mislukt: ${err.message}`);
@@ -320,7 +377,7 @@ async function init() {
   await connectLiveKit(lkToken);
 
   // Globale LiveKit-referentie voor andere modules
-window.lkRoom = room;
+  window.lkRoom = room;
   window.Johka?.updateViewerList?.();
 
   // Extra failsafe: refresh 1 seconde na init
@@ -790,9 +847,14 @@ async function refreshLiveKitTokenAndReconnect() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
+    if (data && !data.room_slug) {
+      const inferredSlug = typeof data.room === "string" ? data.room.replace(/-room$/, "").trim() : null;
+      if (inferredSlug) data.room_slug = inferredSlug;
+    }
     livekitRoomName = data.room || livekitRoomName;
-    liveRoomSlug = (data.room || "").replace(/-room$/, "") || liveRoomSlug;
+    liveRoomSlug = data.room_slug || liveRoomSlug;
     livekitUrl = data.url || livekitUrl;
+    applyRoomMetadata(data);
     await room.connect(livekitUrl, data.token);
     updateStatusBar("✅ Herverbonden", "#4caf50");
     addMsg("✅ Herverbonden met LiveKit");

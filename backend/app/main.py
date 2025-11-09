@@ -621,6 +621,10 @@ async def create_livekit_token(
     target_room = None
     is_owner = False
     can_chat = False
+    room_id = None
+    room_display_name = None
+    room_subject = None
+    room_slug_value = None
 
     if user:
         owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
@@ -628,9 +632,13 @@ async def create_livekit_token(
     if user and not requested_slug:
         if owner_room:
             room_name = f"{owner_room.slug}-room"
+            room_id = owner_room.id
+            room_display_name = owner_room.name
+            room_slug_value = owner_room.slug
         else:
             fallback_slug = slugify(user.username or "room")
             room_name = f"{fallback_slug}-room"
+            room_slug_value = fallback_slug
         room_owner_username = user.username
         is_owner = True
         base_identity = user.username or f"user-{user.id}"
@@ -645,6 +653,9 @@ async def create_livekit_token(
             raise HTTPException(status_code=404, detail="Room niet gevonden")
         room_owner_username = target_room.owner.username
         room_name = f"{target_room.slug}-room"
+        room_id = target_room.id
+        room_display_name = target_room.name
+        room_slug_value = target_room.slug
         if user:
             is_owner = owner_room is not None and owner_room.id == target_room.id
             base_identity = user.username or f"user-{user.id}"
@@ -657,7 +668,23 @@ async def create_livekit_token(
     if user and not is_owner:
         identity = f"{identity}#{uuid4().hex[:6]}"
 
-    
+    if room_id:
+        try:
+            subject_row = s.execute(
+                text(
+                    """
+                SELECT COALESCE(temp_subject, name) AS subject
+                  FROM rooms
+                 WHERE id = :id
+                """
+                ),
+                {"id": room_id},
+            ).fetchone()
+            if subject_row:
+                room_subject = subject_row._mapping.get("subject")
+        except Exception:
+            room_subject = None
+
 
     now = int(time.time())
     exp = now + (12 * 3600)
@@ -691,6 +718,15 @@ async def create_livekit_token(
         "url": LIVEKIT_URL,
         "can_chat": can_chat,
         "identity": identity,
+        "room_id": room_id,
+        "room_name": room_display_name,
+        "room_subject": room_subject,
+        "room_slug": (
+            room_slug_value
+            or (
+                room_name[:-5] if room_name and room_name.endswith("-room") else room_name
+            )
+        ),
     }
 
 
