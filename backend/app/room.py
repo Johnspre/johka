@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from db import get_db  # pas dit aan naar je bestaande get_db()
+
+from admin import get_db  # hergebruik dezelfde database sessie als de admin-routes
 
 router = APIRouter(prefix="/api/room", tags=["Rooms"])
 

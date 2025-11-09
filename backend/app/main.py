@@ -16,6 +16,7 @@ from typing import Optional, List
 from dotenv import load_dotenv
 from bcrypt import hashpw, gensalt
 from admin import router as admin_router
+from room import router as room_router
 
 
 # ---------- FastAPI & Security ----------
@@ -75,7 +76,7 @@ app = FastAPI(title="Johka Live API", version="1.0")
 
 # 🔗 Voeg daarna de router(s) toe
 app.include_router(admin_router)
-
+app.include_router(room_router)
 # ============================================
 # ENV & CONFIG
 # ============================================
