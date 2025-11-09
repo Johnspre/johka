@@ -172,6 +172,19 @@
     };
   </script>
   <script>
+     const API_BASE =
+      window.JOHKA_API_BASE_URL ||
+      (window.location.origin.includes("johka.be") ? "https://api.johka.be" : "");
+
+    function withAuth(headers = {}) {
+      const token = localStorage.getItem("token");
+      if (!token) return headers;
+      return {
+        ...headers,
+        "Authorization": `Bearer ${token}`
+      };
+    }
+
     async function ensureRoomContext() {
       if (window.roomId) return window.roomId;
 
@@ -191,12 +204,9 @@
       if (!token) return null;
 
       try {
-        const res = await fetch("https://api.johka.be/api/livekit-token", {
+        const res = await fetch(`${API_BASE}/api/livekit-token`, {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
+          headers: withAuth({ "Content-Type": "application/json" }),
           body: "{}"
         });
 
@@ -227,8 +237,8 @@
 
         if (!window.roomId) {
           try {
-            const meRes = await fetch("https://api.johka.be/api/me", {
-              headers: { "Authorization": `Bearer ${token}` }
+            const meRes = await fetch(`${API_BASE}/api/me`, {
+              headers: withAuth()
             });
             if (meRes.ok) {
               const meData = await meRes.json();
@@ -246,7 +256,7 @@
 
         if (window.roomId && !window.roomCurrentSubject) {
           try {
-            const subjectRes = await fetch(`https://api.johka.be/api/room/current/${window.roomId}`);
+            const subjectRes = await fetch(`${API_BASE}/api/room/current/${window.roomId}`);
             if (subjectRes.ok) {
               const subjectData = await subjectRes.json();
               if (subjectData.subject) {
@@ -280,13 +290,35 @@
       const numericRoomId = parseInt(roomId, 10);
       const payloadRoomId = Number.isNaN(numericRoomId) ? roomId : numericRoomId;
 
-      const res = await fetch("/api/room/set-subject", {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return alert("Je moet ingelogd zijn om het onderwerp te wijzigen.");
+      }
+
+      const res = await fetch(`${API_BASE}/api/room/set-subject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: withAuth({ "Content-Type": "application/json" }),
         body: JSON.stringify({ room_id: payloadRoomId, subject: trimmed })
       });
 
-      if (!res.ok) return alert("Fout bij aanpassen onderwerp.");
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        let message = "Fout bij aanpassen onderwerp.";
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            const detail = parsed?.detail || parsed?.message;
+            if (detail) {
+              message = Array.isArray(detail) ? detail.join("\n") : String(detail);
+            } else {
+              message = raw;
+            }
+          } catch {
+            message = raw;
+          }
+        }
+        return alert(message);
+      }
       const data = await res.json();
       const subjectEl = document.getElementById("roomSubject");
       if (subjectEl) subjectEl.textContent = data.subject;
@@ -296,11 +328,14 @@
     async function stopBroadcasting() {
       const roomId = window.roomId || localStorage.getItem("room_id");
       if (roomId) {
-        await fetch("/api/room/reset-subject", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room_id: roomId })
-        });
+        const token = localStorage.getItem("token");
+        if (token) {
+          await fetch(`${API_BASE}/api/room/reset-subject`, {
+            method: "POST",
+            headers: withAuth({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ room_id: roomId })
+          });
+        }
       }
       const fallbackSubject = window.roomDefaultSubject || "My room";
       const subjectEl = document.getElementById("roomSubject");
