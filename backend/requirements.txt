@@ -16,6 +16,8 @@ mollie-api-python
 httpx
 python-dotenv
 fastapi-mail
+itsdangerous>=2.1.2
+
 
 
 

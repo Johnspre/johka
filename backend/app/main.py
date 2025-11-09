@@ -14,6 +14,7 @@ from datetime import datetime, date
 from typing import Optional, List
 
 from dotenv import load_dotenv
+from bcrypt import hashpw, gensalt
 
 # ---------- FastAPI & Security ----------
 from fastapi import (
@@ -1533,6 +1534,57 @@ def admin_add_tokens(payload: dict, request: Request, s: Session = Depends(db)):
     s.commit()
 
     return {"status": "ok", "message": f"{amount} tokens toegevoegd aan user {user_id}"}
+# =====================================
+# 🔑 WACHTWOORD RESET FLOW
+# =====================================
+
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+serializer = URLSafeTimedSerializer(os.getenv("JWT_SECRET"))
+
+# 1️⃣ Aanvraag: mail sturen met token
+@app.post("/api/forgot-password")
+async def forgot_password(req: dict, s: Session = Depends(db)):
+    email = req.get("email")
+    user = s.query(UserDB).filter_by(email=email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+
+    token = serializer.dumps(user.email, salt="reset-password")
+    reset_link = f"https://johka.be/reset-password.html?token={token}"
+
+    message = MessageSchema(
+        subject="🔒 Wachtwoord resetten – Johka Live",
+        recipients=[user.email],
+        body=f"Klik op deze link om je wachtwoord opnieuw in te stellen:\n{reset_link}\n\nAls jij dit niet was, negeer dan deze mail.",
+        subtype="plain",
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+    return {"detail": "Resetmail verstuurd"}
+
+
+# 2️⃣ Nieuwe wachtwoord opslaan
+@app.post("/api/reset-password")
+async def reset_password(req: dict, s: Session = Depends(db)):
+    token = req.get("token")
+    new_pw = req.get("password")
+
+    try:
+        email = serializer.loads(token, salt="reset-password", max_age=900)  # 15 min geldig
+    except SignatureExpired:
+        raise HTTPException(status_code=400, detail="Token verlopen")
+    except BadSignature:
+        raise HTTPException(status_code=400, detail="Ongeldig token")
+
+    user = s.query(UserDB).filter_by(email=email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+
+    user.password_hash = hashpw(new_pw.encode(), gensalt()).decode()
+    s.commit()
+    return {"detail": "Wachtwoord succesvol gewijzigd"}
 
 
 # =============================================
