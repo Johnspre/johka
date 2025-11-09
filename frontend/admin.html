@@ -1,124 +1,238 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Johka Admin Dashboard</title>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; background: #fafafa; }
-    h1 { color: #333; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th, td { padding:8px; border-bottom:1px solid #ddd; text-align:left; }
-    th { background:#f2f2f2; }
-    button { padding:4px 10px; border:none; background:#0078ff; color:white; border-radius:4px; cursor:pointer; }
-    button:hover { background:#005fcc; }
-    input { padding:4px; width:80px; margin-right:6px; }
+    :root {
+      --bg: #fafafa;
+      --card: #fff;
+      --text: #222;
+      --muted: #666;
+      --line: #e9e9e9;
+      --blue: #1677ff;
+      --blue-dark: #0f5ed8;
+      --red: #ff4d4f;
+      --green: #00b578;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; padding:24px; background:var(--bg); color:var(--text); }
+    h1 { margin:0 0 16px; font-size:28px; }
+    h2 { margin:24px 0 10px; font-size:22px; }
+    .row { display:grid; grid-template-columns: 1fr; gap:18px; }
+    @media (min-width: 900px){ .row { grid-template-columns: 1.2fr .8fr; } }
+
+    .card { background:var(--card); border-radius:14px; box-shadow: 0 2px 10px rgba(0,0,0,.05); padding:16px; }
+    .stats { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
+    .stat { background:#f8f8f8; border-radius:10px; padding:12px; }
+    .stat b { display:block; font-size:13px; color:var(--muted); }
+    .stat span { font-size:20px; margin-top:2px; display:block; }
+
+    .search { margin-bottom:10px; }
+    .search input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
+
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px 8px; border-bottom:1px solid var(--line); text-align:left; }
+    th { background:#f6f7f9; font-weight:600; }
+
+    .actions { display:flex; gap:6px; align-items:center; }
+    .amt { width:80px; padding:8px; border:1px solid var(--line); border-radius:8px; }
+    .btn { border:0; border-radius:8px; padding:8px 10px; cursor:pointer; font-weight:600; }
+    .btn-blue { background:var(--blue); color:#fff; }
+    .btn-blue:hover { background:var(--blue-dark); }
+    .btn-red { background:var(--red); color:#fff; }
+    .btn-ghost { background:#f3f3f3; }
+    .pill { font-size:12px; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#1f3ad7; }
+    .pill.red { background:#fff1f0; color:#d32029; }
+    .pill.green { background:#e8fff5; color:#007a53; }
+
+    .muted { color:var(--muted); font-size:13px; }
   </style>
-
-  <script>
-    // 🔐 Vraag of laad admin key
-    let ADMIN_KEY = localStorage.getItem("admin_key");
-    if (!ADMIN_KEY) {
-      ADMIN_KEY = prompt("🔐 Voer admin sleutel in:");
-      if (ADMIN_KEY) localStorage.setItem("admin_key", ADMIN_KEY);
-    }
-
-    const API = "https://api.johka.be/api";
-
-    // 🧩 Helper om headers mee te geven
-    function authHeaders(extra = {}) {
-      return Object.assign(
-        { "Adminkey": ADMIN_KEY },
-        extra
-      );
-    }
-
-    // 👥 Users laden
-    async function loadUsers(){
-      const res = await fetch(API + "/admin/users", { headers: authHeaders() });
-      if (!res.ok) {
-        alert("❌ Geen toegang of foutieve admin key.");
-        localStorage.removeItem("admin_key");
-        location.reload();
-        return;
-      }
-      const users = await res.json();
-      const tbody = document.querySelector("#users tbody");
-      tbody.innerHTML = "";
-      for(const u of users){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${u.id}</td>
-          <td>${u.username}</td>
-          <td>${u.balance}</td>
-          <td>
-            <input type="number" id="amt-${u.id}" placeholder="+10">
-            <button onclick="addTokens(${u.id})">Voeg toe</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
-
-    // 📜 Transacties laden
-    async function loadHistory(){
-      const res = await fetch(API + "/admin/history", { headers: authHeaders() });
-      if (!res.ok) {
-        alert("❌ Geen toegang of foutieve admin key.");
-        localStorage.removeItem("admin_key");
-        location.reload();
-        return;
-      }
-      const list = await res.json();
-      const tbody = document.querySelector("#history tbody");
-      tbody.innerHTML = "";
-      for(const t of list){
-        const tr = document.createElement("tr");
-        const sign = t.change > 0 ? "+" : "";
-        tr.innerHTML = `
-          <td>${new Date(t.created_at).toLocaleString()}</td>
-          <td>${t.user}</td>
-          <td>${t.reason}</td>
-          <td>${sign}${t.change}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
-
-    // ➕ Tokens toevoegen
-    async function addTokens(id){
-      const val = document.getElementById("amt-"+id).value;
-      if(!val) return alert("Voer een bedrag in.");
-      await fetch(API + "/admin/add-tokens", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ user_id:id, amount:parseInt(val) })
-      });
-      await loadUsers();
-      await loadHistory();
-    }
-
-    // 🚀 Init
-    window.addEventListener("DOMContentLoaded", () => {
-      loadUsers();
-      loadHistory();
-    });
-  </script>
 </head>
-
 <body>
   <h1>💼 Johka Admin Dashboard</h1>
 
-  <h2>👥 Gebruikers</h2>
-  <table id="users">
-    <thead><tr><th>ID</th><th>Gebruiker</th><th>Saldo</th><th>Actie</th></tr></thead>
-    <tbody><tr><td colspan="4">Laden...</td></tr></tbody>
-  </table>
+  <div class="row">
+    <div class="card">
+      <div class="search">
+        <input id="searchUser" placeholder="🔍 Zoek op id, username of e-mail…" oninput="searchUsers(this.value)" />
+      </div>
+      <h2>👥 Gebruikers</h2>
+      <table id="users">
+        <thead>
+          <tr>
+            <th>ID</th><th>Gebruiker</th><th>E-mail</th><th>Status</th><th>Saldo</th><th>Acties</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="muted">Laden…</td></tr></tbody>
+      </table>
+    </div>
 
-  <h2>📜 Laatste transacties</h2>
-  <table id="history">
-    <thead><tr><th>Datum</th><th>Gebruiker</th><th>Reden</th><th>Bedrag</th></tr></thead>
-    <tbody><tr><td colspan="4">Laden...</td></tr></tbody>
-  </table>
+    <div class="card">
+      <h2>📊 Statistieken</h2>
+      <div class="stats">
+        <div class="stat"><b>Totaal gebruikers</b><span id="statUsers">-</span></div>
+        <div class="stat"><b>Geverifieerd</b><span id="statVerified">-</span></div>
+        <div class="stat"><b>Geblokkeerd</b><span id="statBlocked">-</span></div>
+        <div class="stat"><b>Tokens in omloop</b><span id="statTokens">-</span></div>
+        <div class="stat"><b>Transacties</b><span id="statTransactions">-</span></div>
+      </div>
+      <p class="muted" style="margin-top:10px">Tip: druk **R** om te verversen.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2>📜 Laatste transacties</h2>
+    <table id="history">
+      <thead>
+        <tr><th>Datum</th><th>Gebruiker</th><th>Reden</th><th>Bedrag</th></tr>
+      </thead>
+      <tbody><tr><td colspan="4" class="muted">Laden…</td></tr></tbody>
+    </table>
+  </div>
+
+<script>
+  // ===== Config & auth =====
+  const BASE = "https://api.johka.be/api";        // backend base
+  let ADMIN_KEY = localStorage.getItem("admin_key");
+  if (!ADMIN_KEY) {
+    ADMIN_KEY = prompt("🔐 Admin sleutel:");
+    if (ADMIN_KEY) localStorage.setItem("admin_key", ADMIN_KEY);
+  }
+  const H = (extra={}) => Object.assign({ "adminkey": ADMIN_KEY }, extra); // header helper (lowercase ok)
+
+  // ===== Render helpers =====
+  function renderUsers(users){
+    const tbody = document.querySelector("#users tbody");
+    tbody.innerHTML = "";
+    if (!users.length){
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Geen resultaten.</td></tr>`;
+      return;
+    }
+    for (const u of users){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email ?? ""}</td>
+        <td>
+          ${u.blocked ? '<span class="pill red">geblokkeerd</span>' :
+                         (u.is_verified ? '<span class="pill green">geverifieerd</span>' :
+                                          '<span class="pill">onbevestigd</span>')}
+        </td>
+        <td>${u.balance ?? 0}</td>
+        <td class="actions">
+          <input class="amt" id="amt-${u.id}" type="number" placeholder="+10" />
+          <button class="btn btn-blue" onclick="addTokens(${u.id})">Voeg toe</button>
+          <button class="btn btn-ghost" onclick="editUser(${u.id}, '${u.email ?? ""}', ${u.is_verified ? 1 : 0})">✏️</button>
+          <button class="btn ${u.blocked ? 'btn-ghost' : 'btn-red'}" onclick="toggleBlock(${u.id}, ${u.blocked ? 0 : 1})">
+            ${u.blocked ? '🔓 Deblokkeer' : '🚫 Blokkeer'}
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderHistory(rows){
+    const tbody = document.querySelector("#history tbody");
+    tbody.innerHTML = "";
+    if (!rows.length){
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">Nog geen transacties.</td></tr>`;
+      return;
+    }
+    for (const r of rows){
+      const sign = r.change > 0 ? "+" : "";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td>${r.username ?? r.user ?? "-"}</td>
+        <td>${r.reason ?? "-"}</td>
+        <td>${sign}${r.change}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // ===== API calls =====
+  async function loadUsers(){
+    const res = await fetch(`${BASE}/admin/users`, { headers: H() });
+    if (!res.ok) return unauthorized();
+    renderUsers(await res.json());
+  }
+
+  async function loadHistory(){
+    const res = await fetch(`${BASE}/admin/history`, { headers: H() });
+    if (!res.ok) return unauthorized();
+    renderHistory(await res.json());
+  }
+
+  async function loadStats(){
+    const res = await fetch(`${BASE}/admin/stats`, { headers: H() });
+    if (!res.ok) return; // stats optioneel
+    const s = await res.json();
+    setText("statUsers", s.users);
+    setText("statVerified", s.verified);
+    setText("statBlocked", s.blocked);
+    setText("statTokens", s.wallet_total);
+    setText("statTransactions", s.transactions);
+  }
+
+  async function searchUsers(q){
+    if (!q || q.trim().length < 2) return loadUsers();
+    const res = await fetch(`${BASE}/admin/search?q=${encodeURIComponent(q)}`, { headers: H() });
+    if (!res.ok) return unauthorized();
+    renderUsers(await res.json());
+  }
+
+  async function addTokens(userId){
+    const v = document.getElementById(`amt-${userId}`).value;
+    const amount = parseInt(v, 10);
+    if (!amount) return alert("Voer een positief aantal tokens in.");
+    const res = await fetch(`${BASE}/admin/add-tokens`, {
+      method:"POST",
+      headers: H({ "Content-Type":"application/json" }),
+      body: JSON.stringify({ user_id: userId, amount })
+    });
+    if (!res.ok) return alert("Toevoegen mislukt.");
+    await Promise.all([loadUsers(), loadHistory()]);
+  }
+
+  async function editUser(id, email, verified){
+    const newEmail = prompt("Nieuw e-mailadres:", email || "");
+    if (newEmail === null) return;
+    const makeVerified = confirm("Gebruiker als geverifieerd markeren?");
+    const res = await fetch(`${BASE}/admin/update-user`, {
+      method:"POST",
+      headers: H({ "Content-Type":"application/json" }),
+      body: JSON.stringify({ id, email: newEmail, is_verified: makeVerified })
+    });
+    if (!res.ok) return alert("Bijwerken mislukt.");
+    await loadUsers();
+  }
+
+  async function toggleBlock(id, blocked){
+    const res = await fetch(`${BASE}/admin/block-user`, {
+      method:"POST",
+      headers: H({ "Content-Type":"application/json" }),
+      body: JSON.stringify({ id, blocked: !!blocked })
+    });
+    if (!res.ok) return alert("Actie mislukt.");
+    await loadUsers();
+  }
+
+  function unauthorized(){
+    alert("❌ Geen toegang of ongeldige admin key.");
+    localStorage.removeItem("admin_key");
+    location.reload();
+  }
+  function setText(id, v){ const el = document.getElementById(id); if (el) el.textContent = v ?? "-"; }
+
+  // ===== init & UX =====
+  window.addEventListener("DOMContentLoaded", () => {
+    loadUsers(); loadHistory(); loadStats();
+  });
+  window.addEventListener("keydown", (e)=>{ if(e.key.toLowerCase()==="r") { loadUsers(); loadHistory(); loadStats(); } });
+</script>
 </body>
 </html>

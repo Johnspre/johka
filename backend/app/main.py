@@ -15,6 +15,8 @@ from typing import Optional, List
 
 from dotenv import load_dotenv
 from bcrypt import hashpw, gensalt
+from admin import router as admin_router
+
 
 # ---------- FastAPI & Security ----------
 from fastapi import (
@@ -68,8 +70,11 @@ def _get_env(name: str, default: Optional[str] = None, *, required: bool = False
     return value
 
 
+
 app = FastAPI(title="Johka Live API", version="1.0")
 
+# 🔗 Voeg daarna de router(s) toe
+app.include_router(admin_router)
 
 # ============================================
 # ENV & CONFIG
@@ -1466,74 +1471,7 @@ from fastapi import HTTPException, Request, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-# ✅ 1. Gebruikerslijst met wallet-saldo
-@app.get("/api/admin/users")
-def admin_users(request: Request, s: Session = Depends(db)):
-    key = request.headers.get("adminkey")
-    if key != os.getenv("ADMIN_KEY"):
-        raise HTTPException(status_code=403, detail="Forbidden")
 
-    rows = s.execute(text("""
-        SELECT u.id, u.username, u.email, COALESCE(w.balance, 0) AS balance
-        FROM users u
-        LEFT JOIN wallets w ON u.id = w.user_id
-        ORDER BY u.id ASC;
-    """)).fetchall()
-
-    return [
-        {"id": r.id, "username": r.username, "email": r.email, "balance": r.balance}
-        for r in rows
-    ]
-
-
-# ✅ 2. Transactiegeschiedenis (wallet_history)
-@app.get("/api/admin/history")
-def admin_history(request: Request, s: Session = Depends(db)):
-    key = request.headers.get("adminkey")
-    if key != os.getenv("ADMIN_KEY"):
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    rows = s.execute(text("""
-        SELECT h.id, u.username, h."change", h.reason, h.created_at
-        FROM wallet_history h
-        JOIN users u ON u.id = h.user_id
-        ORDER BY h.created_at DESC
-        LIMIT 100;
-    """)).fetchall()
-
-    return [
-        {
-            "id": r.id,
-            "user": r.username,
-            "change": r.change,
-            "reason": r.reason,
-            "created_at": r.created_at
-        }
-        for r in rows
-    ]
-
-
-# ✅ 3. Tokens toevoegen via admin
-@app.post("/api/admin/add-tokens")
-def admin_add_tokens(payload: dict, request: Request, s: Session = Depends(db)):
-    key = request.headers.get("adminkey")
-    if key != os.getenv("ADMIN_KEY"):
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    user_id = payload.get("user_id")
-    amount = int(payload.get("amount", 0))
-    if not user_id or amount <= 0:
-        raise HTTPException(status_code=400, detail="Invalid amount or user_id")
-
-    wallet = s.query(Wallet).filter_by(user_id=user_id).first()
-    if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet not found")
-
-    wallet.balance += amount
-    s.add(WalletHistory(user_id=user_id, change=amount, reason="admin"))
-    s.commit()
-
-    return {"status": "ok", "message": f"{amount} tokens toegevoegd aan user {user_id}"}
 # =====================================
 # 🔑 WACHTWOORD RESET FLOW
 # =====================================
