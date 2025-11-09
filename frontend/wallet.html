@@ -169,12 +169,18 @@
     }
 
     async function createPayment(tokens) {
+      const tokenAmount = Number(tokens);
+      if (!Number.isFinite(tokenAmount) || tokenAmount <= 0) {
+        console.error("Ongeldig tokenbedrag ontvangen voor betaling:", tokens);
+        alert("❌ Ongeldig tokenbedrag geselecteerd.");
+        return;
+      }
       const token = localStorage.getItem("token");
       if (!token) return alert("Je moet ingelogd zijn.");
       const res = await fetch(`${API}/wallet/create-payment`, {
         method: "POST",
         headers: { "Content-Type":"application/json", "Authorization":"Bearer " + token },
-        body: JSON.stringify({ amount: tokens, redirect_origin: window.location.origin })
+        body: JSON.stringify({ amount: tokenAmount, redirect_origin: window.location.origin })
       });
       const data = await res.json();
       if (data.url) {
