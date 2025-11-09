@@ -176,10 +176,15 @@
       if (window.roomId) return window.roomId;
 
       const stored = localStorage.getItem("room_id");
-      if (stored) {
+      if (stored && stored !== "null" && stored !== "undefined") {
         const parsed = parseInt(stored, 10);
-        window.roomId = Number.isNaN(parsed) ? stored : parsed;
-        return window.roomId;
+        if (!Number.isNaN(parsed)) {
+          window.roomId = parsed;
+          return window.roomId;
+        }
+        try {
+          localStorage.removeItem("room_id");
+        } catch {}
       }
 
       const token = localStorage.getItem("token");
@@ -203,6 +208,10 @@
           try {
             localStorage.setItem("room_id", String(data.room_id));
           } catch {}
+          } else {
+          try {
+            localStorage.removeItem("room_id");
+          } catch {}
         }
 
         const subject = data.room_subject || data.room_name;
@@ -214,6 +223,41 @@
 
         if (data.room_name) {
           window.roomDefaultSubject = data.room_name;
+        }
+
+        if (!window.roomId) {
+          try {
+            const meRes = await fetch("https://api.johka.be/api/me", {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              if (meData.room_id) {
+                window.roomId = meData.room_id;
+                try {
+                  localStorage.setItem("room_id", String(meData.room_id));
+                } catch {}
+              }
+            }
+          } catch (err) {
+            console.warn("Kon room_id niet ophalen via /api/me", err);
+          }
+        }
+
+        if (window.roomId && !window.roomCurrentSubject) {
+          try {
+            const subjectRes = await fetch(`https://api.johka.be/api/room/current/${window.roomId}`);
+            if (subjectRes.ok) {
+              const subjectData = await subjectRes.json();
+              if (subjectData.subject) {
+                const subjectEl = document.getElementById("roomSubject");
+                if (subjectEl) subjectEl.textContent = subjectData.subject;
+                window.roomCurrentSubject = subjectData.subject;
+              }
+            }
+          } catch (err) {
+            console.warn("Kon huidig onderwerp niet ophalen", err);
+          }
         }
 
         return window.roomId || null;
@@ -232,10 +276,14 @@
       const newSubj = prompt("Nieuw onderwerp:", document.getElementById("roomSubject").textContent);
       if (newSubj === null) return;
 
+      const trimmed = newSubj.trim();
+      const numericRoomId = parseInt(roomId, 10);
+      const payloadRoomId = Number.isNaN(numericRoomId) ? roomId : numericRoomId;
+
       const res = await fetch("/api/room/set-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ room_id: roomId, subject: newSubj })
+        body: JSON.stringify({ room_id: payloadRoomId, subject: trimmed })
       });
 
       if (!res.ok) return alert("Fout bij aanpassen onderwerp.");

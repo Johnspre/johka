@@ -193,6 +193,7 @@ class RoomDB(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     name = Column(String(64), nullable=False)
     slug = Column(String(64), unique=True, nullable=False, index=True)
+    temp_subject = Column(String(100), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     owner = relationship("UserDB", back_populates="room")
     __table_args__ = (UniqueConstraint("slug", name="uq_room_slug"),)
@@ -246,6 +247,7 @@ class MeOut(BaseModel):
     email: EmailStr
     bio: Optional[str] = ""
     room_slug: Optional[str] = None
+    room_id: Optional[int] = None
 
 
 class RoomOut(BaseModel):
@@ -274,6 +276,34 @@ def slugify(s: str) -> str:
     s = s.lower()
     s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
     return s or "room"
+
+def ensure_user_room(user: UserDB, s: Session) -> RoomDB:
+    existing = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if existing:
+        return existing
+
+    base_title = user.username or f"Creator {user.id}"
+    base_slug = slugify(base_title)[:60] or f"room-{user.id}"
+    slug = base_slug
+    suffix = 1
+    while s.query(RoomDB).filter(RoomDB.slug == slug).first():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    room = RoomDB(user_id=user.id, name=base_title, slug=slug)
+    s.add(room)
+    try:
+        s.commit()
+    except IntegrityError:
+        s.rollback()
+        slug = f"{base_slug}-{uuid4().hex[:6]}"
+        room = RoomDB(user_id=user.id, name=base_title, slug=slug)
+        s.add(room)
+        s.commit()
+
+    s.refresh(room)
+    return room
+
 
 
 def create_access_token(payload: dict, expires_seconds: int = 60 * 60 * 12) -> str:
@@ -372,11 +402,20 @@ def on_startup():
             s.commit()
         except Exception:
             s.rollback()
+        try:
+            s.execute(
+                text("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS temp_subject VARCHAR(100)")
+            )
+            s.commit()
+        except Exception:
+            s.rollback()
         users = s.query(UserDB).all()
         for u in users:
             if not u.wallet:
                 s.add(Wallet(user_id=u.id, balance=0))
         s.commit()
+        for u in users:
+            ensure_user_room(u, s)
 
 
 # ============================================
@@ -526,14 +565,15 @@ def login_user(data: dict, s: Session = Depends(db)):
 
 
 @app.get("/api/me", response_model=MeOut)
-def me(user: UserDB = Depends(get_current_user)):
-    room_slug = user.room.slug if user.room else None
+def me(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
+    room = ensure_user_room(user, s)
     return MeOut(
         id=user.id,
         username=user.username,
         email=user.email,
         bio=user.bio or "",
-        room_slug=room_slug,
+        room_slug=room.slug if room else None,
+        room_id=room.id if room else None,
     )
 
 
@@ -628,17 +668,15 @@ async def create_livekit_token(
 
     if user:
         owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
-
+        if not owner_room:
+            owner_room = ensure_user_room(user, s)
     if user and not requested_slug:
-        if owner_room:
-            room_name = f"{owner_room.slug}-room"
-            room_id = owner_room.id
-            room_display_name = owner_room.name
-            room_slug_value = owner_room.slug
-        else:
-            fallback_slug = slugify(user.username or "room")
-            room_name = f"{fallback_slug}-room"
-            room_slug_value = fallback_slug
+        if not owner_room:
+            raise HTTPException(status_code=500, detail="Kon room niet bepalen")
+        room_name = f"{owner_room.slug}-room"
+        room_id = owner_room.id
+        room_display_name = owner_room.name
+        room_slug_value = owner_room.slug
         room_owner_username = user.username
         is_owner = True
         base_identity = user.username or f"user-{user.id}"
@@ -729,6 +767,54 @@ async def create_livekit_token(
         ),
     }
 
+def _ensure_owner_room(room_id_value, user: UserDB, s: Session) -> RoomDB:
+    if room_id_value is None:
+        raise HTTPException(status_code=400, detail="room_id is vereist")
+    try:
+        room_id_int = int(room_id_value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Ongeldige room_id")
+    room = s.get(RoomDB, room_id_int)
+    if not room or room.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Geen toegang tot deze room")
+    return room
+
+
+@app.post("/api/room/set-subject")
+def set_room_subject(
+    payload: dict,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db),
+):
+    room = _ensure_owner_room(payload.get("room_id"), user, s)
+    subject = (payload.get("subject") or "").strip()
+    if len(subject) > 100:
+        raise HTTPException(status_code=400, detail="Onderwerp te lang")
+
+    room.temp_subject = subject or None
+    s.commit()
+    final_subject = room.temp_subject or room.name
+    return {"subject": final_subject}
+
+
+@app.post("/api/room/reset-subject")
+def reset_room_subject(
+    payload: dict,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db),
+):
+    room = _ensure_owner_room(payload.get("room_id"), user, s)
+    room.temp_subject = None
+    s.commit()
+    return {"subject": room.name}
+
+
+@app.get("/api/room/current/{room_id}")
+def get_room_subject(room_id: int, s: Session = Depends(db)):
+    room = s.get(RoomDB, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room niet gevonden")
+    return {"subject": room.temp_subject or room.name}
 
 
 # ============================================
@@ -738,10 +824,9 @@ async def create_livekit_token(
 @app.post("/api/go-live")
 def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
     owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
-    if owner_room:
-        room_slug = owner_room.slug
-    else:
-        room_slug = slugify(user.username)
+    if not owner_room:
+        owner_room = ensure_user_room(user, s)
+    room_slug = owner_room.slug
     with engine.connect() as conn:
         conn.execute(
             text(
@@ -1036,6 +1121,8 @@ def public_creator(username: str, s: Session = Depends(db)):
         raise HTTPException(404, "Gebruiker niet gevonden")
 
     room = s.query(RoomDB).filter(RoomDB.user_id == u.id).first()
+    if not room:
+        room = ensure_user_room(u, s)
     gallery = []
     import json
 
