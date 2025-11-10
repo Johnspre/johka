@@ -700,7 +700,7 @@ class RoomUpdateIn(BaseModel):
     access_key: str | None = None
     token_price: int | None = 0
 
-@router.post("/update-access")
+@room_router.post("/update-access")
 def update_room_access(
     data: RoomUpdateIn,
     user: UserDB = Depends(get_current_user),

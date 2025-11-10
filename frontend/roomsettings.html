@@ -34,34 +34,85 @@
 
 <script>
 (() => {
+  const API_BASE = "https://api.johka.be/api";
+  window.__JOHKA_API_BASE = API_BASE;
+
   const btn = document.getElementById("resetPublicBtn");
   if (!btn) return;
 
-  btn.addEventListener("click", async () => {
-    const slug = prompt("Naam of slug van de room die je publiek wilt maken:");
-    if (!slug) return alert("Geen roomnaam opgegeven.");
+  let cachedRoomSlug = null;
 
+  async function fetchOwnRoomSlug(token) {
+    if (cachedRoomSlug) return cachedRoomSlug;
+
+    const res = await fetch(`${API_BASE}/me`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      throw new Error("Je sessie is verlopen. Log opnieuw in.");
+    }
+
+    if (!res.ok) {
+      throw new Error("Kon je roomgegevens niet ophalen.");
+    }
+
+    const data = await res.json();
+    cachedRoomSlug = data?.room_slug || null;
+    return cachedRoomSlug;
+  }
+
+  btn.addEventListener("click", async () => {
     const token = localStorage.getItem("token");
     if (!token) return alert("Je bent niet ingelogd.");
 
-    if (!confirm(`Weet je zeker dat je '${slug}' publiek wilt maken?`)) return;
+    let slug = null;
+    try {
+      slug = await fetchOwnRoomSlug(token);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Mislukt: " + err.message);
+      return;
+    }
+
+    if (!slug) {
+      alert("❌ Geen room gekoppeld aan je account.");
+      return;
+    }
+
+    if (!confirm(`Weet je zeker dat je de room '${slug}' weer publiek wilt maken?`)) return;
 
     try {
-      const res = await fetch("https://api.johka.be/api/room/update-access", {
+      const res = await fetch(`${API_BASE}/room/update-access`, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer " + token,
-          "Content-Type": "application/json"
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          slug: slug,
-          access_mode: "public"
+          slug,
+          access_mode: "public",
+          access_key: null,
+          token_price: 0,
+        }),
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || res.statusText);
+      let data;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = {};
+      }
+
+      if (!res.ok) throw new Error(data.detail || data.message || res.statusText);
       alert("✅ Room is nu publiek!");
+
+      const toggle = document.getElementById("isPrivateToggle");
+      const options = document.getElementById("privateOptions");
+      if (toggle) toggle.checked = false;
+      if (options) options.style.display = "none";
     } catch (err) {
       console.error(err);
       alert("❌ Mislukt: " + err.message);
@@ -72,6 +123,7 @@
 
 <script>
 (() => {
+  const API_BASE = window.__JOHKA_API_BASE || "https://api.johka.be/api";
   const $ = (s) => document.querySelector(s);
   const toggle = $('#isPrivateToggle');
   const options = $('#privateOptions');
@@ -107,7 +159,7 @@
     if (!token) return alert('Je bent niet ingelogd.');
 
     try {
-      const r = await fetch('https://api.johka.be/api/room/create-private', {
+      const r = await fetch(`${API_BASE}/room/create-private`, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, access_mode: mode, access_key: key, token_price: tokens })
