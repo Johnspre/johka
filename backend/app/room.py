@@ -282,7 +282,7 @@ def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(get_d
         )
         conn.commit()
 
-    log_room_action(s, room_id, user.id, "start_stream", room_slug)
+    
     return {"ok": True, "room": room_slug}
 
 @_public_router.post("/api/end-live")
@@ -311,7 +311,7 @@ def end_live(
         )
         conn.commit()
 
-    log_room_action(s, room_id, user.id, "stop_stream", room_slug)
+    
     return {"ok": True}
 
 # ===============================================================

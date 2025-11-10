@@ -686,6 +686,7 @@ async function startAV() {
       addMsg(`✅ ${t.kind} gestart`);
     }
 
+
     const stage = el("stage");
     if (stage) {
       stage.innerHTML = "";

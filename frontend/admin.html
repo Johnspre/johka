@@ -90,31 +90,39 @@
       <tbody><tr><td colspan="4" class="muted">Laden…</td></tr></tbody>
     </table>
   </div>
-<h2>🕓 Laatste Room Logs</h2>
-<table id="logs">
-  <thead><tr><th>Tijd</th><th>Gebruiker</th><th>Room</th><th>Actie</th><th>Info</th></tr></thead>
-  <tbody><tr><td colspan="5">Laden...</td></tr></tbody>
-</table>
 
 <script>
 async function loadLogs() {
-  const res = await fetch("/api/admin/room-logs");
-  const logs = await res.json();
-  const tbody = document.querySelector("#logs tbody");
-  tbody.innerHTML = "";
-  for (const l of logs) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${new Date(l.created_at).toLocaleString()}</td>
-      <td>${l.username || "-"}</td>
-      <td>${l.slug || "-"}</td>
-      <td>${l.action}</td>
-      <td>${l.info || ""}</td>
-    `;
-    tbody.appendChild(tr);
+  try {
+    const res = await fetch(`${BASE}/admin/room-logs`, { headers: H() });
+    if (!res.ok) {
+      console.warn("Kon room logs niet laden:", res.status);
+      return;
+    }
+    const logs = await res.json();
+    const tbody = document.querySelector("#logs tbody");
+    tbody.innerHTML = "";
+    if (!logs.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Nog geen logs gevonden.</td></tr>`;
+      return;
+    }
+    for (const l of logs) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${new Date(l.created_at).toLocaleString()}</td>
+        <td>${l.username || "-"}</td>
+        <td>${l.slug || "-"}</td>
+        <td>${l.action}</td>
+        <td>${l.info || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    console.error("Fout bij laden van logs:", err);
   }
 }
 window.addEventListener("DOMContentLoaded", loadLogs);
+
 </script>
 
 <script>
@@ -256,9 +264,20 @@ window.addEventListener("DOMContentLoaded", loadLogs);
 
   // ===== init & UX =====
   window.addEventListener("DOMContentLoaded", () => {
-    loadUsers(); loadHistory(); loadStats();
-  });
-  window.addEventListener("keydown", (e)=>{ if(e.key.toLowerCase()==="r") { loadUsers(); loadHistory(); loadStats(); } });
+  loadUsers();
+  loadHistory();
+  loadStats();
+  loadLogs();  // 👈 voeg deze toe
+});
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "r") {
+    loadUsers();
+    loadHistory();
+    loadStats();
+    loadLogs();  // 👈 ook hier
+  }
+});
+
 </script>
 </body>
 </html>

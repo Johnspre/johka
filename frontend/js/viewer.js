@@ -45,14 +45,24 @@ let guestNoticeShown = false;
 let manualPlayHandler = null;
 let audioUnlocked = false;
 let audioUnlockHandler = null;
+let currentVideoTrack = null;
 
 if (remoteVideo) {
   remoteVideo.setAttribute("playsinline", "true");
   remoteVideo.setAttribute("webkit-playsinline", "true");
+  remoteVideo.setAttribute("autoplay", "true");
+  remoteVideo.playsInline = true;
   remoteVideo.autoplay = true;
+  if ("disablePictureInPicture" in remoteVideo) {
+    remoteVideo.disablePictureInPicture = true;
+  }
+  if ("disableRemotePlayback" in remoteVideo) {
+    remoteVideo.disableRemotePlayback = true;
+  }
   // iOS Safari blokkeert vaak audio tot er een user gesture heeft plaatsgevonden.
   // We starten daarom gedempt en proberen het geluid later vrij te geven.
   remoteVideo.muted = true;
+  remoteVideo.defaultMuted = true;
   remoteVideo.setAttribute("muted", "true");
 }
 
@@ -206,12 +216,16 @@ function setChatEnabled(enabled) {
 }
 
 function attachVideoTrack(videoTrack) {
-  if (!remoteVideo) return;
-  const stream = new MediaStream([videoTrack.mediaStreamTrack]);
-  remoteVideo.srcObject = stream;
-  if (typeof remoteVideo.load === "function") {
-    remoteVideo.load();
+  if (!remoteVideo || !videoTrack) return;
+  if (currentVideoTrack && currentVideoTrack !== videoTrack) {
+    try {
+      currentVideoTrack.detach(remoteVideo);
+    } catch (err) {
+      console.warn("Kon vorige videotrack niet loskoppelen", err);
+    }
   }
+  currentVideoTrack = videoTrack;
+  videoTrack.attach(remoteVideo);
   if (remoteVideo.readyState >= 2) {
     ensureVideoPlayback();
   } else {
@@ -363,19 +377,37 @@ async function obtainToken() {
 
 function setupRoomEvents(room) {
   room
-    .on(RoomEvent.TrackSubscribed, (_track, publication) => {
-      if (publication.kind === Track.Kind.Video && publication.videoTrack) {
-        attachVideoTrack(publication.videoTrack);
+    .on(RoomEvent.TrackSubscribed, (track, publication) => {
+      if (track.kind === Track.Kind.Video) {
+        attachVideoTrack(track);
         logMessage("🎬 Stream gestart.");
-      } else if (publication.kind === Track.Kind.Audio && publication.audioTrack) {
-        publication.audioTrack.attach(new Audio());
+      } else if (track.kind === Track.Kind.Audio) {
+        const audioEl = track.attach();
+        if (audioEl instanceof HTMLMediaElement) {
+          audioEl.autoplay = true;
+          audioEl.muted = false;
+        }
       }
     })
-    .on(RoomEvent.TrackUnsubscribed, (_track, publication) => {
+    .on(RoomEvent.TrackUnsubscribed, (track, publication) => {
       if (publication.kind === Track.Kind.Video) {
+        if (currentVideoTrack) {
+          try {
+            currentVideoTrack.detach(remoteVideo);
+          } catch (err) {
+            console.warn("Kon videotrack niet loskoppelen", err);
+          }
+          currentVideoTrack = null;
+        }
         remoteVideo.srcObject = null;
         clearManualPlaybackHandler();
         showOverlay("⏳ Wachten op video...");
+        } else if (publication.kind === Track.Kind.Audio) {
+        try {
+          track?.detach();
+        } catch (err) {
+          console.warn("Kon audiotrack niet loskoppelen", err);
+        }
       }
     })
     .on(RoomEvent.ParticipantConnected, updateViewerCount)
