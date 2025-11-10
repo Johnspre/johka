@@ -21,6 +21,11 @@ from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from main import UserDB, RoomDB        # of het juiste pad naar jouw modellen
+from main import get_db as db        # <--- dit is de fix
+
 
 # 🔄 Hergebruik bestaande helpers uit main.py om dubbele logica te vermijden.
 from main import (
@@ -553,6 +558,89 @@ async def live_active():
         print(f"⚠️  Redis fetch failed: {exc}")
         return []
     return [k.split(":")[1] for k in keys]
+
+from fastapi import Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+# --- inputmodel ---
+class PrivateRoomIn(BaseModel):
+    name: str
+    access_mode: str                     # 'invite' | 'password' | 'token'
+    access_key: str | None = None        # bij 'invite' of 'password'
+    token_price: int | None = 0          # bij 'token'
+
+
+@router.post("/api/room/create-private")
+def create_private_room(
+    data: PrivateRoomIn,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    if data.access_mode not in ("invite", "password", "token"):
+        raise HTTPException(400, "Ongeldig access_mode")
+
+    slug = data.name.strip().lower().replace(" ", "-")
+    exists = s.query(RoomDB).filter_by(slug=slug, user_id=user.id).first()
+    if exists:
+        raise HTTPException(400, "Je hebt al een room met deze naam")
+
+    room = RoomDB(
+        user_id=user.id,
+        name=data.name.strip(),
+        slug=slug,
+        is_private=True,
+        access_mode=data.access_mode,
+        access_key=data.access_key,
+        token_price=data.token_price or 0,
+    )
+    s.add(room)
+    s.commit()
+    s.refresh(room)
+
+    return {
+        "ok": True,
+        "room_id": room.id,
+        "slug": room.slug,
+        "access_mode": room.access_mode,
+    }
+
+class PrivateJoinIn(BaseModel):
+    slug: str
+    key: str | None = None
+
+
+@router.post("/api/room/join-private")
+def join_private_room(
+    data: PrivateJoinIn,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    room = s.query(RoomDB).filter_by(slug=data.slug, is_private=True).first()
+    if not room:
+        raise HTTPException(404, "Privéroom niet gevonden")
+
+    # --- toegangscontrole ---
+    if room.access_mode == "password":
+        if not data.key or data.key != room.access_key:
+            raise HTTPException(403, "Ongeldig wachtwoord")
+
+    elif room.access_mode == "invite":
+        if not data.key or data.key != room.access_key:
+            raise HTTPException(403, "Geen geldige uitnodiging")
+
+    elif room.access_mode == "token":
+        price = room.token_price or 0
+        if user.balance < price:
+            raise HTTPException(402, f"Niet genoeg tokens ({price} vereist)")
+        user.balance -= price
+        s.commit()
+
+    return {
+        "ok": True,
+        "room_slug": room.slug,
+        "access_mode": room.access_mode,
+    }
 
 # Registreer de routers nadat alle endpoints gedefinieerd zijn om te vermijden
 # dat een lege router wordt toegevoegd (wat 404's veroorzaakte in de API).

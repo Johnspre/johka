@@ -1086,6 +1086,133 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 })();
 
+
+// === PRIVÉROOM LOGICA ===
+const isPrivateToggle = document.getElementById("isPrivateToggle");
+const privateOptions = document.getElementById("privateOptions");
+const privateModeSel = document.getElementById("privateMode");
+const privateKeyField = document.getElementById("privateKeyField");
+const privateTokenField = document.getElementById("privateTokenField");
+const createPrivateBtn = document.getElementById("createPrivateBtn");
+
+if (isPrivateToggle) {
+  isPrivateToggle.addEventListener("change", () => {
+    privateOptions.style.display = isPrivateToggle.checked ? "block" : "none";
+  });
+}
+
+if (privateModeSel) {
+  privateModeSel.addEventListener("change", () => {
+    const mode = privateModeSel.value;
+    privateKeyField.style.display = (mode === "invite" || mode === "password") ? "block" : "none";
+    privateTokenField.style.display = (mode === "token") ? "block" : "none";
+  });
+}
+
+if (createPrivateBtn) {
+  createPrivateBtn.addEventListener("click", async () => {
+    const mode = privateModeSel.value;
+    const key = document.getElementById("privateKey")?.value || null;
+    const tokens = Number(document.getElementById("privateTokens")?.value) || 0;
+    const name = prompt("Geef een naam voor je privéroom:", "mijn-room");
+
+    if (!name) return alert("Geen naam opgegeven.");
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Je bent niet ingelogd.");
+
+      const res = await fetch("https://api.johka.be/api/room/create-private", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name,
+          access_mode: mode,
+          access_key: key,
+          token_price: tokens
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      alert(`✅ Privéroom aangemaakt!\nSlug: ${data.slug}\nToegang: ${data.access_mode}`);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Privéroom aanmaken mislukt: " + err.message);
+    }
+  });
+}
+// === init Private Room UI for roomsettings.html ===
+function initPrivateRoomUI() {
+  const toggle = document.getElementById("isPrivateToggle");
+  const options = document.getElementById("privateOptions");
+  const modeSel = document.getElementById("privateMode");
+  const keyField = document.getElementById("privateKeyField");
+  const tokenField = document.getElementById("privateTokenField");
+  const createBtn = document.getElementById("createPrivateBtn");
+
+  if (!toggle) return; // pagina nog niet geladen of niet aanwezig
+
+  toggle.addEventListener("change", () => {
+    options.style.display = toggle.checked ? "block" : "none";
+  });
+
+  if (modeSel) {
+    modeSel.addEventListener("change", () => {
+      const mode = modeSel.value;
+      keyField.style.display =
+        mode === "invite" || mode === "password" ? "block" : "none";
+      tokenField.style.display = mode === "token" ? "block" : "none";
+    });
+  }
+
+  if (createBtn) {
+    createBtn.addEventListener("click", async () => {
+      const name = prompt("Naam van privéroom:", "mijn-room");
+      if (!name) return;
+      const mode = modeSel.value;
+      const key = document.getElementById("privateKey")?.value || null;
+      const tokens = Number(
+        document.getElementById("privateTokens")?.value || 0
+      );
+
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Je bent niet ingelogd.");
+
+      const res = await fetch("https://api.johka.be/api/room/create-private", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          access_mode: mode,
+          access_key: key,
+          token_price: tokens,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      alert(`✅ Privéroom aangemaakt!\nSlug: ${data.slug}`);
+    });
+  }
+}
+
+// 👉 telkens wanneer de roomsettings-pagina geladen wordt
+document.addEventListener("DOMContentLoaded", () => {
+  // controleer of we op de roomsettings-pagina zijn
+  if (window.location.pathname.endsWith("roomsettings.html")) {
+    initPrivateRoomUI();
+  }
+});
+
 // ================================
 // 👥 JOHKA - ViewerList (safe scope)
 // ================================

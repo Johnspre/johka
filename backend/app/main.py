@@ -198,6 +198,10 @@ class RoomDB(Base):
     created_at = Column(DateTime, server_default=func.now())
     owner = relationship("UserDB", back_populates="room")
     __table_args__ = (UniqueConstraint("slug", name="uq_room_slug"),)
+    is_private   = Column(Boolean, nullable=False, server_default="false")
+    access_mode  = Column(Text,    nullable=False, server_default="public")  # 'public'|'invite'|'password'|'token'
+    access_key   = Column(Text,    nullable=True)                            # password/invite code
+    token_price  = Column(Integer, nullable=False, server_default="0")       # aantal tokens bij 'token'
 
 
 class Wallet(Base):

@@ -1,0 +1,79 @@
+<div class="card" id="privateRoomSettings" style="margin-top:10px;padding:10px;background:#f8f8f8;border-radius:10px;">
+  <h3>🔒 Privéroom Instellingen</h3>
+
+  <label><input type="checkbox" id="isPrivateToggle"> Maak deze room privé</label>
+
+  <div id="privateOptions" style="display:none;margin-top:10px;">
+    <label>Toegangsmodus:</label>
+    <select id="privateMode">
+      <option value="invite">Invite-code</option>
+      <option value="password">Wachtwoord</option>
+      <option value="token">Tokens</option>
+    </select>
+
+    <div id="privateKeyField" style="margin-top:8px;">
+      <label>Invite-code / wachtwoord:</label>
+      <input id="privateKey" type="text" placeholder="geheim123">
+    </div>
+
+    <div id="privateTokenField" style="margin-top:8px;display:none;">
+      <label>Prijs in tokens:</label>
+      <input id="privateTokens" type="number" min="0" value="10">
+    </div>
+
+    <button id="createPrivateBtn" style="margin-top:10px;">Privéroom aanmaken</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const toggle = $('#isPrivateToggle');
+  const options = $('#privateOptions');
+  const modeSel = $('#privateMode');
+  const keyField = $('#privateKeyField');
+  const tokenField = $('#privateTokenField');
+  const btn = $('#createPrivateBtn');
+
+  if (!toggle) return; // fragment nog niet goed geladen
+
+  // uitklappen
+  toggle.addEventListener('change', () => {
+    options.style.display = toggle.checked ? 'block' : 'none';
+  });
+
+  // velden wisselen op basis van modus
+  modeSel.addEventListener('change', () => {
+    const m = modeSel.value;
+    keyField.style.display   = (m === 'invite' || m === 'password') ? 'block' : 'none';
+    tokenField.style.display = (m === 'token') ? 'block' : 'none';
+  });
+
+  // aanmaken
+  btn.addEventListener('click', async () => {
+    const name   = prompt('Naam van privéroom:', 'mijn-room');
+    if (!name) return;
+
+    const mode   = modeSel.value;
+    const key    = $('#privateKey')?.value || null;
+    const tokens = Number($('#privateTokens')?.value || 0);
+
+    const token = localStorage.getItem('token');
+    if (!token) return alert('Je bent niet ingelogd.');
+
+    try {
+      const r = await fetch('https://api.johka.be/api/room/create-private', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, access_mode: mode, access_key: key, token_price: tokens })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      alert(`✅ Privéroom aangemaakt!\nSlug: ${data.slug}\nToegang: ${data.access_mode}`);
+    } catch (e) {
+      console.error(e);
+      alert('❌ Mislukt: ' + e.message);
+    }
+  });
+})();
+</script>
