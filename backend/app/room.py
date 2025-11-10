@@ -23,8 +23,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from main import UserDB, RoomDB        # of het juiste pad naar jouw modellen
-from main import get_db as db        # <--- dit is de fix
+from main import RoomDB, UserDB  # of het juiste pad naar jouw modellen
+from main import Wallet, WalletHistory
+from main import get_db as db  # <--- dit is de fix
 
 
 # 🔄 Hergebruik bestaande helpers uit main.py om dubbele logica te vermijden.
@@ -33,8 +34,6 @@ from main import (
     LIVEKIT_API_SECRET,
     LIVEKIT_URL,
     PREVIEW_DIR,
-    RoomDB,
-    UserDB,
     _get_env,
     _normalize_room_slug,
     _psql,
@@ -640,16 +639,85 @@ def join_private_room(
 
     elif room.access_mode == "token":
         price = room.token_price or 0
-        if user.balance < price:
-            raise HTTPException(402, f"Niet genoeg tokens ({price} vereist)")
-        user.balance -= price
-        s.commit()
+        if price < 0:
+            price = 0
+
+        if price and user.id != room.user_id:
+            viewer_wallet = s.query(Wallet).filter_by(user_id=user.id).first()
+            if not viewer_wallet or viewer_wallet.balance < price:
+                raise HTTPException(402, f"Niet genoeg tokens ({price} vereist)")
+
+            owner_wallet = s.query(Wallet).filter_by(user_id=room.user_id).first()
+            if not owner_wallet:
+                owner_wallet = Wallet(user_id=room.user_id, balance=0)
+                s.add(owner_wallet)
+
+            viewer_wallet.balance -= price
+            owner_wallet.balance += price
+
+            s.add_all(
+                [
+                    WalletHistory(
+                        user_id=user.id,
+                        change=-price,
+                        reason=f"room:private:join:{room.slug}",
+                    ),
+                    WalletHistory(
+                        user_id=room.user_id,
+                        change=price,
+                        reason=f"room:private:earn:{room.slug}",
+                    ),
+                ]
+            )
+
+            s.commit()
+
+            return {
+                "ok": True,
+                "room_slug": room.slug,
+                "access_mode": room.access_mode,
+                "new_balance": viewer_wallet.balance,
+            }
 
     return {
         "ok": True,
         "room_slug": room.slug,
         "access_mode": room.access_mode,
     }
+# 👇 import bovenaan (als het er nog niet staat)
+from pydantic import BaseModel
+from fastapi import HTTPException, Depends
+from sqlalchemy.orm import Session
+from main import RoomDB, UserDB  # of het juiste pad naar jouw modellen
+from main import Wallet, WalletHistory
+from main import get_db as db  # <--- dit is de fix
+
+
+# 👇 deze klasse en functie onderaan toevoegen
+class RoomUpdateIn(BaseModel):
+    slug: str
+    access_mode: str = "public"     # public | invite | password | token
+    access_key: str | None = None
+    token_price: int | None = 0
+
+@router.post("/update-access")
+def update_room_access(
+    data: RoomUpdateIn,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    room = s.query(RoomDB).filter_by(slug=data.slug, user_id=user.id).first()
+    if not room:
+        raise HTTPException(404, "Room niet gevonden of geen eigenaar")
+
+    room.access_mode = data.access_mode
+    room.access_key = data.access_key
+    room.token_price = data.token_price or 0
+    room.is_private = data.access_mode != "public"
+
+    s.commit()
+    return {"ok": True, "message": f"Room '{room.slug}' bijgewerkt"}
+
 
 # Registreer de routers nadat alle endpoints gedefinieerd zijn om te vermijden
 # dat een lege router wordt toegevoegd (wat 404's veroorzaakte in de API).

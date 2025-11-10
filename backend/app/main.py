@@ -637,6 +637,9 @@ def get_room(slug: str, s: Session = Depends(db)):
         "livekit_room": f"{room.slug}-room",
         "live_slug": live_slug,
         "is_live": bool(live_slug),
+        "is_private": bool(getattr(room, "is_private", False)),
+        "access_mode": getattr(room, "access_mode", "public"),
+        "token_price": getattr(room, "token_price", 0) or 0,
         "viewers": live_viewers,
         "preview_url": preview_url,
     }

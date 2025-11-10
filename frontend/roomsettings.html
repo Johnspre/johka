@@ -24,6 +24,51 @@
     <button id="createPrivateBtn" style="margin-top:10px;">Privéroom aanmaken</button>
   </div>
 </div>
+<hr style="margin:15px 0;">
+
+<button id="resetPublicBtn"
+  style="background:#ff4d4f;color:white;border:0;border-radius:8px;
+         padding:8px 12px;font-weight:600;cursor:pointer;">
+  🔓 Terug naar publieke room
+</button>
+
+<script>
+(() => {
+  const btn = document.getElementById("resetPublicBtn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    const slug = prompt("Naam of slug van de room die je publiek wilt maken:");
+    if (!slug) return alert("Geen roomnaam opgegeven.");
+
+    const token = localStorage.getItem("token");
+    if (!token) return alert("Je bent niet ingelogd.");
+
+    if (!confirm(`Weet je zeker dat je '${slug}' publiek wilt maken?`)) return;
+
+    try {
+      const res = await fetch("https://api.johka.be/api/room/update-access", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          slug: slug,
+          access_mode: "public"
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      alert("✅ Room is nu publiek!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Mislukt: " + err.message);
+    }
+  });
+})();
+</script>
 
 <script>
 (() => {
