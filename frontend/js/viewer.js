@@ -43,11 +43,54 @@ let viewingActive = false;
 let chatAllowed = Boolean(localStorage.getItem("token"));
 let guestNoticeShown = false;
 let manualPlayHandler = null;
+let audioUnlocked = false;
+let audioUnlockHandler = null;
 
 if (remoteVideo) {
   remoteVideo.setAttribute("playsinline", "true");
   remoteVideo.setAttribute("webkit-playsinline", "true");
   remoteVideo.autoplay = true;
+  // iOS Safari blokkeert vaak audio tot er een user gesture heeft plaatsgevonden.
+  // We starten daarom gedempt en proberen het geluid later vrij te geven.
+  remoteVideo.muted = true;
+  remoteVideo.setAttribute("muted", "true");
+}
+
+function clearAudioUnlockHandler() {
+  if (!audioUnlockHandler) return;
+  ["click", "touchend"].forEach((evt) => {
+    document.removeEventListener(evt, audioUnlockHandler, true);
+  });
+  audioUnlockHandler = null;
+}
+
+async function unlockAudio() {
+  if (!lkRoom) return;
+  if (!audioUnlocked) {
+    try {
+      await lkRoom.startAudio();
+      audioUnlocked = true;
+    } catch (err) {
+      console.warn("Audio unlock failed", err);
+    }
+  }
+  if (remoteVideo) {
+    remoteVideo.muted = false;
+    remoteVideo.removeAttribute("muted");
+  }
+  if (audioUnlocked) {
+    clearAudioUnlockHandler();
+  }
+}
+
+function registerAudioUnlockHandler() {
+  if (audioUnlocked || audioUnlockHandler) return;
+  audioUnlockHandler = () => {
+    unlockAudio();
+  };
+  ["click", "touchend"].forEach((evt) => {
+    document.addEventListener(evt, audioUnlockHandler, true);
+  });
 }
 
 function setStatus({ live = false, text = "Offline" }) {
@@ -86,6 +129,7 @@ function requestManualPlayback() {
   showOverlay("▶️ Tik om de stream te starten");
   clearManualPlaybackHandler();
   overlay.classList.add("interactive");
+  registerAudioUnlockHandler();
   manualPlayHandler = () => {
     const retry = remoteVideo.play();
     if (retry && typeof retry.then === "function") {
@@ -93,6 +137,7 @@ function requestManualPlayback() {
         .then(() => {
           hideOverlay();
           clearManualPlaybackHandler();
+          unlockAudio()
         })
         .catch((err) => {
           console.warn("Handmatige afspeelpoging mislukt", err);
@@ -101,6 +146,7 @@ function requestManualPlayback() {
     } else {
       hideOverlay();
       clearManualPlaybackHandler();
+      unlockAudio();
     }
   };
   overlay.addEventListener("click", manualPlayHandler, { once: true });
@@ -111,12 +157,14 @@ function requestManualPlayback() {
 
 function ensureVideoPlayback() {
   if (!remoteVideo) return;
+  registerAudioUnlockHandler();
   const attempt = remoteVideo.play();
   if (attempt && typeof attempt.then === "function") {
     attempt
       .then(() => {
         hideOverlay();
         clearManualPlaybackHandler();
+        unlockAudio();
       })
       .catch((err) => {
         console.warn("Autoplay geblokkeerd", err);
@@ -124,6 +172,7 @@ function ensureVideoPlayback() {
       });
   } else {
     hideOverlay();
+    unlockAudio();
   }
 }
 
@@ -160,6 +209,9 @@ function attachVideoTrack(videoTrack) {
   if (!remoteVideo) return;
   const stream = new MediaStream([videoTrack.mediaStreamTrack]);
   remoteVideo.srcObject = stream;
+  if (typeof remoteVideo.load === "function") {
+    remoteVideo.load();
+  }
   if (remoteVideo.readyState >= 2) {
     ensureVideoPlayback();
   } else {
@@ -434,12 +486,15 @@ async function joinRoomWithToken(tokenData) {
       await lkRoom.disconnect();
     } catch (_) {}
   }
+  audioUnlocked = false;
+  clearAudioUnlockHandler();
   const room = new Room({ adaptiveStream: true, dynacast: true });
   lkRoom = room;
   setChatEnabled(false);
   showOverlay("Verbonden – wachten op video...");
   setupRoomEvents(room);
   await room.connect(tokenData.url, tokenData.token, { autoSubscribe: true });
+  registerAudioUnlockHandler();
   updateViewerCount();
   setChatEnabled(true);
   await notifyView("start");
