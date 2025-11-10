@@ -40,9 +40,13 @@ from main import (
     get_optional_user,
 )
 
-from sqlalchemy import text
-
-def log_room_action(s, room_id, user_id, action, info=""):
+def log_room_action(
+    s: Session,
+    room_id: int,
+    user_id: int,
+    action: str,
+    info: str = "",
+) -> None:
     """Schrijft een gebeurtenis naar de room_logs-tabel."""
     try:
         s.execute(text("""
@@ -257,7 +261,9 @@ def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(get_d
     owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
     if not owner_room:
         owner_room = ensure_user_room(user, s)
+
     room_slug = owner_room.slug
+    room_id = owner_room.id
     with engine.connect() as conn:
         conn.execute(
             text(
@@ -276,11 +282,21 @@ def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(get_d
         )
         conn.commit()
 
-    log_room_action(s, room_id, user_id, "start_stream")
+    log_room_action(s, room_id, user.id, "start_stream", room_slug)
     return {"ok": True, "room": room_slug}
 
 @_public_router.post("/api/end-live")
-def end_live(user: UserDB = Depends(get_current_user)):
+def end_live(
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(get_db),
+):
+    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if not owner_room:
+        owner_room = ensure_user_room(user, s)
+
+    room_slug = owner_room.slug
+    room_id = owner_room.id
+
     with engine.connect() as conn:
         conn.execute(
             text(
@@ -295,7 +311,7 @@ def end_live(user: UserDB = Depends(get_current_user)):
         )
         conn.commit()
 
-    log_room_action(s, room_id, user_id, "stop_stream")
+    log_room_action(s, room_id, user.id, "stop_stream", room_slug)
     return {"ok": True}
 
 # ===============================================================
