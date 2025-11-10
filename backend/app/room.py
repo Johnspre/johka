@@ -532,5 +532,10 @@ async def live_active():
         return []
     return [k.split(":")[1] for k in keys]
 
+# Registreer de routers nadat alle endpoints gedefinieerd zijn om te vermijden
+# dat een lege router wordt toegevoegd (wat 404's veroorzaakte in de API).
+router.include_router(room_router)
+router.include_router(_public_router)
+
 
 __all__ = ["router"]
