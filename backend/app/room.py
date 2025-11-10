@@ -40,6 +40,18 @@ from main import (
     get_optional_user,
 )
 
+from sqlalchemy import text
+
+def log_room_action(s, room_id, user_id, action, info=""):
+    """Schrijft een gebeurtenis naar de room_logs-tabel."""
+    try:
+        s.execute(text("""
+            INSERT INTO room_logs (room_id, user_id, action, info)
+            VALUES (:r, :u, :a, :i)
+        """), {"r": room_id, "u": user_id, "a": action, "i": info})
+        s.commit()
+    except Exception as e:
+        print(f"⚠️  Kon room log niet schrijven: {e}")
 
 # ===============================================================
 # 🔌 Redis (heartbeat voor "go live" status)
@@ -263,6 +275,8 @@ def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(get_d
             {"uid": user.id, "slug": room_slug},
         )
         conn.commit()
+
+    log_room_action(s, room_id, user_id, "start_stream")
     return {"ok": True, "room": room_slug}
 
 @_public_router.post("/api/end-live")
@@ -280,6 +294,8 @@ def end_live(user: UserDB = Depends(get_current_user)):
             {"uid": user.id},
         )
         conn.commit()
+
+    log_room_action(s, room_id, user_id, "stop_stream")
     return {"ok": True}
 
 # ===============================================================
@@ -383,6 +399,7 @@ def set_room_subject(
     room.temp_subject = subject or None
     s.commit()
     final_subject = room.temp_subject or room.name
+    log_room_action(s, room.id, room.user_id, "subject_changed", subject)
     return {"subject": final_subject}
 
 @room_router.post("/reset-subject")

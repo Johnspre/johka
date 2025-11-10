@@ -174,3 +174,59 @@ def admin_stats(s: Session = Depends(get_db), auth: bool = Depends(verify_admin)
     stats["wallet_total"] = s.execute(text("SELECT SUM(balance) FROM wallets")).scalar() or 0
     stats["transactions"] = s.execute(text("SELECT COUNT(*) FROM wallet_history")).scalar()
     return stats
+
+
+# === ROOM LOGS & STATISTIEKEN ===
+
+from sqlalchemy import text
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://johka:SuperSterkWachtwoord123@postgres:5432/johka")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Zorg dat dit in dezelfde router zit als je andere admin routes
+# (dus: router = APIRouter(prefix="/api/admin", tags=["Admin"]))
+
+# 📜 Route 1: Laatste room logs
+@router.get("/room-logs")
+def get_room_logs(s: Session = Depends(get_db)):
+    """Toont de laatste 100 gebeurtenissen in rooms."""
+    rows = s.execute(text("""
+        SELECT l.id, l.created_at, u.username, r.slug, l.action, l.info
+        FROM room_logs l
+        LEFT JOIN users u ON u.id = l.user_id
+        LEFT JOIN rooms r ON r.id = l.room_id
+        ORDER BY l.created_at DESC
+        LIMIT 100
+    """)).fetchall()
+
+    return [dict(r._mapping) for r in rows]
+
+
+# 📊 Route 2: Algemene room-statistieken
+@router.get("/room-stats")
+def get_room_stats(s: Session = Depends(get_db)):
+    """Geeft algemene statistieken over rooms, streams en tips."""
+    stats = s.execute(text("""
+        SELECT
+            (SELECT COUNT(*) FROM rooms) AS total_rooms,
+            (SELECT COUNT(DISTINCT room_id) FROM room_logs WHERE action='start_stream') AS total_streams,
+            (SELECT COUNT(DISTINCT user_id) FROM room_logs WHERE action='tip_sent') AS active_tippers,
+            (SELECT COUNT(*) FROM room_logs WHERE action='tip_sent') AS total_tips,
+            (SELECT COUNT(DISTINCT user_id) FROM users WHERE is_verified=true) AS verified_users
+    """)).fetchone()
+
+    return dict(stats._mapping)

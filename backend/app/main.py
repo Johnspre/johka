@@ -938,7 +938,8 @@ def send_tip(data: TipIn, user: UserDB = Depends(get_current_user), s: Session =
     )
 
     s.commit()
-
+    log_room_action(s, room_id=None, user_id=from_user,
+                    action="tip_sent", info=f"{amount} tokens naar {to_user}")
     return {
         "message": f"Je hebt {data.amount} tokens gestuurd naar {target.username}",
         "new_balance": sender_wallet.balance,
