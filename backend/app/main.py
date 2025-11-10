@@ -7,27 +7,23 @@ import os
 from uuid import uuid4
 import re
 import time
-import base64
 import shutil
-from io import BytesIO
 from datetime import datetime, date
 from typing import Optional, List
 
 from dotenv import load_dotenv
 from bcrypt import hashpw, gensalt
 from admin import router as admin_router
-from room import router as room_router
 
 
 # ---------- FastAPI & Security ----------
 from fastapi import (
     FastAPI, Depends, HTTPException, status, Header,
-    UploadFile, File, Request, Body
+    UploadFile, File, Request
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from starlette.responses import JSONResponse
-from fastapi import Header
 # ---------- DB ----------
 import psycopg2
 from sqlalchemy import (
@@ -53,8 +49,6 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from pydantic import BaseModel, EmailStr
 
-# ---------- Images ----------
-from PIL import Image
 
 # ---------- LiveKit ----------
 #   pip install livekit-api
@@ -76,7 +70,6 @@ app = FastAPI(title="Johka Live API", version="1.0")
 
 # 🔗 Voeg daarna de router(s) toe
 app.include_router(admin_router)
-app.include_router(room_router)
 # ============================================
 # ENV & CONFIG
 # ============================================
@@ -167,6 +160,13 @@ def db() -> Session:
         yield s
     finally:
         s.close()
+
+
+def get_db():
+    """Compatibele alias zodat andere modules de DB-sessie kunnen opvragen."""
+
+    yield from db()
+
 
 
 # ============================================
@@ -628,323 +628,7 @@ def get_room(slug: str, s: Session = Depends(db)):
     }
 
 
-# ==========================================
-# 🎥 LIVEKIT TOKEN GENERATOR (v1.0.17)
-# ==========================================
-# =========================================================
-# 🎥 LIVEKIT TOKEN GENERATOR (v3 – compatibel met LiveKit 1.9.x)
-# =========================================================
 
-
-class LivekitTokenRequest(BaseModel):
-    room_slug: Optional[str] = None
-
-
-def _normalize_room_slug(raw_slug: str) -> str:
-    """Normalize inkomende slug zodat die overeenkomt met RoomDB.slug."""
-
-    slug = raw_slug.strip().lower()
-    if slug.endswith("-room"):
-        slug = slug[: -len("-room")]
-    return slugify(slug)
-
-@app.post("/api/livekit-token")
-async def create_livekit_token(
-    payload: Optional[LivekitTokenRequest] = Body(default=None),
-    user: Optional[UserDB] = Depends(get_optional_user),
-    s: Session = Depends(db),
-):
-    payload = payload or LivekitTokenRequest()
-    
-    requested_slug = payload.room_slug.strip() if payload.room_slug else None
-
-    owner_room = None
-    target_room = None
-    is_owner = False
-    can_chat = False
-    room_id = None
-    room_display_name = None
-    room_subject = None
-    room_slug_value = None
-
-    if user:
-        owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
-        if not owner_room:
-            owner_room = ensure_user_room(user, s)
-    if user and not requested_slug:
-        if not owner_room:
-            raise HTTPException(status_code=500, detail="Kon room niet bepalen")
-        room_name = f"{owner_room.slug}-room"
-        room_id = owner_room.id
-        room_display_name = owner_room.name
-        room_slug_value = owner_room.slug
-        room_owner_username = user.username
-        is_owner = True
-        base_identity = user.username or f"user-{user.id}"
-        identity = base_identity
-        can_chat = True
-    else:
-        if not requested_slug:
-            raise HTTPException(status_code=400, detail="room_slug is vereist")
-        normalized_slug = _normalize_room_slug(requested_slug)
-        target_room = s.query(RoomDB).filter(RoomDB.slug == normalized_slug).first()
-        if not target_room:
-            raise HTTPException(status_code=404, detail="Room niet gevonden")
-        room_owner_username = target_room.owner.username
-        room_name = f"{target_room.slug}-room"
-        room_id = target_room.id
-        room_display_name = target_room.name
-        room_slug_value = target_room.slug
-        if user:
-            is_owner = owner_room is not None and owner_room.id == target_room.id
-            base_identity = user.username or f"user-{user.id}"
-            identity = base_identity
-            can_chat = True
-        else:
-            identity = f"gast-{uuid4().hex[:6]}"
-            can_chat = False
-
-    if user and not is_owner:
-        identity = f"{identity}#{uuid4().hex[:6]}"
-
-    if room_id:
-        try:
-            subject_row = s.execute(
-                text(
-                    """
-                SELECT COALESCE(temp_subject, name) AS subject
-                  FROM rooms
-                 WHERE id = :id
-                """
-                ),
-                {"id": room_id},
-            ).fetchone()
-            if subject_row:
-                room_subject = subject_row._mapping.get("subject")
-        except Exception:
-            room_subject = None
-
-
-    now = int(time.time())
-    exp = now + (12 * 3600)
-
-    
-    grants = {
-        "room": room_name,
-        "roomJoin": True,
-        "roomCreate": is_owner,
-        "canPublish": is_owner,
-        "canSubscribe": True,
-        "canPublishData": can_chat,
-    }
-
-    payload = {
-        "iss": LIVEKIT_API_KEY,
-        "sub": identity,
-        "nbf": now - 10,
-        "exp": exp,
-        "video": grants, 
-    }
-
-    token = jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
-    print(
-        "🎥 LiveKit token voor user=%s, room=%s (owner=%s, publish=%s)"
-        % (identity, room_name, room_owner_username, is_owner)
-    )
-    return {
-        "token": token,
-        "room": room_name,
-        "url": LIVEKIT_URL,
-        "can_chat": can_chat,
-        "identity": identity,
-        "room_id": room_id,
-        "room_name": room_display_name,
-        "room_subject": room_subject,
-        "room_slug": (
-            room_slug_value
-            or (
-                room_name[:-5] if room_name and room_name.endswith("-room") else room_name
-            )
-        ),
-    }
-
-def _ensure_owner_room(room_id_value, user: UserDB, s: Session) -> RoomDB:
-    if room_id_value is None:
-        raise HTTPException(status_code=400, detail="room_id is vereist")
-    try:
-        room_id_int = int(room_id_value)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Ongeldige room_id")
-    room = s.get(RoomDB, room_id_int)
-    if not room or room.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Geen toegang tot deze room")
-    return room
-
-
-@app.post("/api/room/set-subject")
-def set_room_subject(
-    payload: dict,
-    user: UserDB = Depends(get_current_user),
-    s: Session = Depends(db),
-):
-    room = _ensure_owner_room(payload.get("room_id"), user, s)
-    subject = (payload.get("subject") or "").strip()
-    if len(subject) > 100:
-        raise HTTPException(status_code=400, detail="Onderwerp te lang")
-
-    room.temp_subject = subject or None
-    s.commit()
-    final_subject = room.temp_subject or room.name
-    return {"subject": final_subject}
-
-
-@app.post("/api/room/reset-subject")
-def reset_room_subject(
-    payload: dict,
-    user: UserDB = Depends(get_current_user),
-    s: Session = Depends(db),
-):
-    room = _ensure_owner_room(payload.get("room_id"), user, s)
-    room.temp_subject = None
-    s.commit()
-    return {"subject": room.name}
-
-
-@app.get("/api/room/current/{room_id}")
-def get_room_subject(room_id: int, s: Session = Depends(db)):
-    room = s.get(RoomDB, room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room niet gevonden")
-    return {"subject": room.temp_subject or room.name}
-
-
-# ============================================
-# GO-LIVE / END-LIVE + VIEWERS
-# (Postgres tabellen: live_sessions, live_viewers verwacht)
-# ============================================
-@app.post("/api/go-live")
-def go_live(user: UserDB = Depends(get_current_user), s: Session = Depends(db)):
-    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
-    if not owner_room:
-        owner_room = ensure_user_room(user, s)
-    room_slug = owner_room.slug
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-            INSERT INTO live_sessions (user_id, room_slug, started_at, viewers, snapshot)
-            VALUES (:uid, :slug, NOW(), 0, NULL)
-            ON CONFLICT (user_id)
-            DO UPDATE SET room_slug=:slug,
-                          started_at=NOW(),
-                          ended_at=NULL,
-                          viewers=0,
-                          snapshot=NULL
-            """
-            ),
-            {"uid": user.id, "slug": room_slug},
-        )
-        conn.commit()
-    return {"ok": True, "room": room_slug}
-
-
-@app.post("/api/end-live")
-def end_live(user: UserDB = Depends(get_current_user)):
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-            UPDATE live_sessions
-               SET ended_at = NOW(), viewers = 0
-             WHERE user_id = :uid
-               AND ended_at IS NULL
-            """
-            ),
-            {"uid": user.id},
-        )
-        conn.commit()
-    return {"ok": True}
-
-
-@app.post("/api/room/view-start")
-async def room_view_start(request: Request):
-    data = await request.json()
-    room = data.get("room")
-    if not room:
-        raise HTTPException(400, "Missing room")
-    ip = request.client.host
-
-    conn = _psql()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id FROM live_sessions WHERE room_slug=%s AND ended_at IS NULL",
-        (room,),
-    )
-    sess = cur.fetchone()
-    if not sess:
-        conn.close()
-        raise HTTPException(404, "No active live found")
-    session_id = sess[0]
-    cur.execute(
-        "SELECT id FROM live_viewers WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
-        (session_id, ip),
-    )
-    if cur.fetchone():
-        conn.close()
-        return {"ok": True}
-
-    cur.execute(
-        "UPDATE live_viewers SET left_at=NULL, joined_at=NOW() WHERE session_id=%s AND viewer_ip=%s",
-        (session_id, ip),
-    )
-    if cur.rowcount == 0:
-        cur.execute(
-            "INSERT INTO live_viewers (session_id, viewer_ip, joined_at) VALUES (%s,%s,NOW())",
-            (session_id, ip),
-        )
-    cur.execute(
-        "UPDATE live_sessions SET viewers = COALESCE(viewers, 0) + 1 WHERE id=%s",
-        (session_id,),
-    )
-    conn.commit()
-    conn.close()
-    return {"ok": True}
-
-
-@app.post("/api/room/view-end")
-async def room_view_end(request: Request):
-    data = await request.json()
-    room = data.get("room")
-    if not room:
-        return {"ok": True}
-    ip = request.client.host
-
-    conn = _psql()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT id FROM live_sessions WHERE room_slug=%s AND ended_at IS NULL",
-        (room,),
-    )
-    
-    sess = cur.fetchone()
-    if not sess:
-        conn.close()
-        return {"ok": True}
-
-    session_id = sess[0]
-    cur.execute(
-        "UPDATE live_viewers SET left_at=NOW() WHERE session_id=%s AND viewer_ip=%s AND left_at IS NULL",
-        (session_id, ip),
-    )
-    if cur.rowcount:
-        cur.execute(
-            "UPDATE live_sessions SET viewers = GREATEST(COALESCE(viewers, 0) - 1, 0) WHERE id=%s",
-            (session_id,),
-        )
-        conn.commit()
-    conn.close()
-    return {"ok": True}
 
 
 # ============================================
@@ -1271,133 +955,7 @@ def get_tips(user: UserDB = Depends(get_current_user), s: Session = Depends(db))
     ]
 
 
-# ============================================
-# SNAPSHOTS (JPG + GIF)
-# ============================================
-@app.post("/api/room/snapshot")
-async def upload_snapshot(request: Request, user: UserDB = Depends(get_current_user)):
-    data = await request.json()
-    img_b64 = data.get("image")
-    if not img_b64:
-        raise HTTPException(400, "Geen afbeelding ontvangen")
 
-    img_data = base64.b64decode(img_b64.split(",")[1])
-    filename = f"{user.username}_{int(time.time())}.jpg"
-    filepath = os.path.join(PREVIEW_DIR, filename)
-    with open(filepath, "wb") as f:
-        f.write(img_data)
-
-    # DB update (optioneel)
-    conn = _psql()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE live_sessions SET snapshot=%s WHERE user_id=%s AND ended_at IS NULL",
-        (filename, user.id),
-    )
-    conn.commit()
-    conn.close()
-
-    return {"status": "ok", "file": filename}
-
-
-@app.post("/api/room/snapshot-seq")
-async def upload_snapshot_sequence(
-    request: Request, user: UserDB = Depends(get_current_user)
-):
-    data = await request.json()
-    frames_b64 = data.get("frames", [])
-    if not frames_b64:
-        raise HTTPException(400, "Geen frames ontvangen")
-
-    frames = []
-    for img_b64 in frames_b64:
-        try:
-            img_data = base64.b64decode(img_b64.split(",")[1])
-            frame = Image.open(BytesIO(img_data)).convert("RGB")
-            frames.append(frame)
-        except Exception as e:
-            print("Frame fout:", e)
-
-    if not frames:
-        raise HTTPException(400, "Geen geldige frames ontvangen")
-
-    gif_filename = f"{user.username}_{int(time.time())}.gif"
-    gif_path = os.path.join(PREVIEW_DIR, gif_filename)
-
-    frames[0].save(
-        gif_path, save_all=True, append_images=frames[1:], duration=500, loop=0
-    )
-
-    conn = _psql()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE live_sessions SET snapshot=%s WHERE user_id=%s AND ended_at IS NULL",
-        (gif_filename, user.id),
-    )
-    conn.commit()
-    conn.close()
-
-    return {"status": "ok", "file": gif_filename}
-# ============================================
-# LIVE PRESENCE (Redis heartbeat for room.js)
-# ============================================
-RedisError = Exception
-try:
-    from redis.asyncio import Redis
-    from redis.exceptions import RedisError
-
-    REDIS_URL = _get_env("REDIS_URL")
-    REDIS_HOST = _get_env("REDIS_HOST", "redis")
-    REDIS_PORT = int(_get_env("REDIS_PORT", "6379"))
-    REDIS_PASSWORD = _get_env("REDIS_PASSWORD", required=True)
-
-    if REDIS_URL:
-        redis = Redis.from_url(REDIS_URL, decode_responses=True)
-    else:
-        redis = Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            password=REDIS_PASSWORD or None,
-            decode_responses=True,
-        )
-except Exception as exc:  # pragma: no cover - Redis optional in some envs
-    print(f"⚠️  Redis disabled: {exc}")
-    redis = None
-
-
-@app.post("/api/live/start")
-async def live_start(u: UserDB = Depends(get_current_user)):
-    """Room.js heartbeat: streamer bevestigt dat die live is."""
-    if redis:
-        try:
-            # Bewaar username 60 seconden als "live"
-            await redis.set(f"live:{u.username}", "1", ex=60)
-        except Exception as exc:
-            print(f"⚠️ Redis heartbeat failed: {exc}")
-
-    return {"status": "live"}
-
-@app.post("/api/live/stop")
-async def live_stop(u: UserDB = Depends(get_current_user)):
-    if redis:
-        try:
-            await redis.delete(f"live:{u.username}")
-        except RedisError as exc:
-            print(f"⚠️  Redis cleanup failed: {exc}")
-    return {"status": "stopped"}
-
-
-@app.get("/api/live/active")
-async def live_active():
-    """Frontend kan zien wie live is (UI future use)."""
-    if not redis:
-        return []
-    try:
-        keys = await redis.keys("live:*")
-    except RedisError as exc:
-        print(f"⚠️  Redis fetch failed: {exc}")
-        return []
-    return [k.split(":")[1] for k in keys]
 
 # =============================================
 #  Laatste stukje van je main.py
@@ -1537,6 +1095,12 @@ def wallet_history(user: UserDB = Depends(get_current_user), s: Session = Depend
         for r in rows
     ]
 
+# ===========================================
+# ROOM ROUTER
+# ===========================================
+from room import router as room_router
+
+app.include_router(room_router)
 
 # ============================================
 # 💳 Mollie webhook – saldo bijwerken + loggen
