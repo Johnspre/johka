@@ -231,6 +231,10 @@ main.viewer-layout {
   letter-spacing: 0.4px;
 }
 
+#playerOverlay.interactive {
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.6);
+}
 /* ===== CREATOR INFO BOX ===== */
 #creatorInfoBox {
   grid-area: info;

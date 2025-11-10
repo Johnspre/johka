@@ -42,6 +42,13 @@ let reconnecting = false;
 let viewingActive = false;
 let chatAllowed = Boolean(localStorage.getItem("token"));
 let guestNoticeShown = false;
+let manualPlayHandler = null;
+
+if (remoteVideo) {
+  remoteVideo.setAttribute("playsinline", "true");
+  remoteVideo.setAttribute("webkit-playsinline", "true");
+  remoteVideo.autoplay = true;
+}
 
 function setStatus({ live = false, text = "Offline" }) {
   statusBadge.classList.toggle("offline", !live);
@@ -52,11 +59,72 @@ function showOverlay(message) {
   if (!overlay) return;
   overlay.textContent = message;
   overlay.style.display = "flex";
+  overlay.classList.remove("interactive");
 }
 
 function hideOverlay() {
   if (!overlay) return;
   overlay.style.display = "none";
+}
+
+function clearManualPlaybackHandler() {
+  if (!manualPlayHandler) return;
+  if (overlay) {
+    overlay.removeEventListener("click", manualPlayHandler);
+    overlay.removeEventListener("touchend", manualPlayHandler);
+    overlay.classList.remove("interactive");
+  }
+  if (remoteVideo) {
+    remoteVideo.removeEventListener("click", manualPlayHandler);
+    remoteVideo.removeEventListener("touchend", manualPlayHandler);
+  }
+  manualPlayHandler = null;
+}
+
+function requestManualPlayback() {
+  if (!overlay || !remoteVideo) return;
+  showOverlay("▶️ Tik om de stream te starten");
+  clearManualPlaybackHandler();
+  overlay.classList.add("interactive");
+  manualPlayHandler = () => {
+    const retry = remoteVideo.play();
+    if (retry && typeof retry.then === "function") {
+      retry
+        .then(() => {
+          hideOverlay();
+          clearManualPlaybackHandler();
+        })
+        .catch((err) => {
+          console.warn("Handmatige afspeelpoging mislukt", err);
+          setTimeout(() => requestManualPlayback(), 0);
+        });
+    } else {
+      hideOverlay();
+      clearManualPlaybackHandler();
+    }
+  };
+  overlay.addEventListener("click", manualPlayHandler, { once: true });
+  overlay.addEventListener("touchend", manualPlayHandler, { once: true });
+  remoteVideo.addEventListener("click", manualPlayHandler, { once: true });
+  remoteVideo.addEventListener("touchend", manualPlayHandler, { once: true });
+}
+
+function ensureVideoPlayback() {
+  if (!remoteVideo) return;
+  const attempt = remoteVideo.play();
+  if (attempt && typeof attempt.then === "function") {
+    attempt
+      .then(() => {
+        hideOverlay();
+        clearManualPlaybackHandler();
+      })
+      .catch((err) => {
+        console.warn("Autoplay geblokkeerd", err);
+        requestManualPlayback();
+      });
+  } else {
+    hideOverlay();
+  }
 }
 
 function updateChatNotice(message) {
@@ -89,8 +157,18 @@ function setChatEnabled(enabled) {
 }
 
 function attachVideoTrack(videoTrack) {
+  if (!remoteVideo) return;
   const stream = new MediaStream([videoTrack.mediaStreamTrack]);
   remoteVideo.srcObject = stream;
+  if (remoteVideo.readyState >= 2) {
+    ensureVideoPlayback();
+  } else {
+    const handleMetadata = () => {
+      remoteVideo.removeEventListener("loadedmetadata", handleMetadata);
+      ensureVideoPlayback();
+    };
+    remoteVideo.addEventListener("loadedmetadata", handleMetadata);
+  }
 }
 
 async function notifyView(endpoint) {
@@ -236,7 +314,6 @@ function setupRoomEvents(room) {
     .on(RoomEvent.TrackSubscribed, (_track, publication) => {
       if (publication.kind === Track.Kind.Video && publication.videoTrack) {
         attachVideoTrack(publication.videoTrack);
-        hideOverlay();
         logMessage("🎬 Stream gestart.");
       } else if (publication.kind === Track.Kind.Audio && publication.audioTrack) {
         publication.audioTrack.attach(new Audio());
@@ -245,6 +322,7 @@ function setupRoomEvents(room) {
     .on(RoomEvent.TrackUnsubscribed, (_track, publication) => {
       if (publication.kind === Track.Kind.Video) {
         remoteVideo.srcObject = null;
+        clearManualPlaybackHandler();
         showOverlay("⏳ Wachten op video...");
       }
     })
@@ -296,6 +374,7 @@ function handleRoomDisconnected(roomInstance) {
   showOverlay("Verbinding verbroken – opnieuw verbinden...");
   logMessage("⚠️ Verbinding verbroken. Probeer opnieuw te verbinden...", "system");
   notifyView("end");
+  clearManualPlaybackHandler();
   scheduleReconnect();
 }
 
