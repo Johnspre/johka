@@ -676,23 +676,73 @@ setupDonationControls();
 
 
 async function start() {
-    setChatEnabled(false);
-    logMessage("💬 Verbinden met stream...", "system");
+  setChatEnabled(false);
+  logMessage("💬 Verbinden met stream...", "system");
+
   try {
     const info = await loadRoomInfo();
     await loadCreatorBio();
 
+    // 1️⃣ Room niet live
     if (!info.is_live) {
       showOverlay("🔴 Deze creator is momenteel offline");
       logMessage("ℹ️ Deze stream is momenteel offline.", "system");
       return;
     }
+
+    // 2️⃣ Privé-room controle
+    if (info.is_private) {
+      const mode = info.access_mode;
+      let key = null;
+
+      if (mode === "password" || mode === "invite") {
+        key = prompt("🔒 Deze room is privé.\nVoer het wachtwoord of invite-code in:");
+        if (!key) return alert("Geen toegangscode ingevoerd.");
+      }
+
+      if (mode === "token") {
+        const price = info.token_price || 0;
+        const confirmPay = confirm(`💰 Deze privéroom kost ${price} tokens.\nWil je binnenkomen?`);
+        if (!confirmPay) return logMessage("❌ Toegang geannuleerd door gebruiker.", "system");
+      }
+
+      // 3️⃣ backend-aanroep voor toegang
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Je bent niet ingelogd.");
+
+      const res = await fetch("https://api.johka.be/api/room/join-private", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ slug: info.slug, key }),
+      });
+
+      if (res.status === 402) {
+        alert("❌ Niet genoeg tokens om deze room te betreden.");
+        return;
+      }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || res.statusText);
+      }
+
+      const joinData = await res.json();
+      console.log("✅ Privé-toegang bevestigd:", joinData);
+    }
+
+    // 4️⃣ Verbinden met LiveKit
     await connectToLiveKit();
+    logMessage("✅ Verbonden met LiveKit.", "system");
   } catch (err) {
     console.error(err);
     logMessage(`❌ ${err.message}`, "system");
+    showOverlay(`❌ ${err.message}`);
   }
 }
+
 if (chatForm) {
   chatForm.addEventListener("submit", (event) => {
     event.preventDefault();

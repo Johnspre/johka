@@ -43,6 +43,7 @@ from main import (
     get_current_user,
     get_db,
     get_optional_user,
+    slugify,
 )
 
 def log_room_action(
@@ -580,21 +581,29 @@ def create_private_room(
     if data.access_mode not in ("invite", "password", "token"):
         raise HTTPException(400, "Ongeldig access_mode")
 
-    slug = data.name.strip().lower().replace(" ", "-")
-    exists = s.query(RoomDB).filter_by(slug=slug, user_id=user.id).first()
-    if exists:
-        raise HTTPException(400, "Je hebt al een room met deze naam")
+    desired_name = data.name.strip()
+    slug = slugify(desired_name)
 
-    room = RoomDB(
-        user_id=user.id,
-        name=data.name.strip(),
-        slug=slug,
-        is_private=True,
-        access_mode=data.access_mode,
-        access_key=data.access_key,
-        token_price=data.token_price or 0,
+    # Zorg dat de slug uniek is voor andere gebruikers, zodat de update niet faalt.
+    slug_conflict = (
+        s.query(RoomDB)
+        .filter(RoomDB.slug == slug, RoomDB.user_id != user.id)
+        .first()
     )
-    s.add(room)
+    if slug_conflict:
+        raise HTTPException(400, "Deze roomnaam is al in gebruik")
+
+    room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if not room:
+        room = ensure_user_room(user, s)
+
+    room.name = desired_name or room.name
+    room.slug = slug or room.slug
+    room.is_private = True
+    room.access_mode = data.access_mode
+    room.access_key = data.access_key if data.access_mode in {"invite", "password"} else None
+    room.token_price = (data.token_price or 0) if data.access_mode == "token" else 0
+
     s.commit()
     s.refresh(room)
 
