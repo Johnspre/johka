@@ -31,6 +31,7 @@ from main import (
     RoomDB,
     UserDB,
     _get_env,
+    _normalize_room_slug,
     _psql,
     ensure_user_room,
     engine,
@@ -89,18 +90,6 @@ router.include_router(_public_router)
 class LivekitTokenRequest(BaseModel):
     room_slug: Optional[str] = None
 
-
-def _normalize_room_slug(raw_slug: str) -> str:
-    """Normaliseer inkomende slug zodat die overeenkomt met ``RoomDB.slug``."""
-
-    slug = raw_slug.strip().lower()
-    if slug.endswith("-room"):
-        slug = slug[: -len("-room")]
-
-    # hergebruik bestaande slugify via ``ensure_user_room``
-    from main import slugify  # lazy import om circulaire import te vermijden
-
-    return slugify(slug)
 
 
 def _ensure_owner_room(room_id_value, user: UserDB, s: Session) -> RoomDB:

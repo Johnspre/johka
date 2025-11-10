@@ -278,6 +278,16 @@ def slugify(s: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
     return s or "room"
 
+def _normalize_room_slug(raw_slug: str) -> str:
+    """Normaliseer een inkomende slug zodat die overeenkomt met ``RoomDB.slug``."""
+
+    slug = raw_slug.strip().lower()
+    if slug.endswith("-room"):
+        slug = slug[: -len("-room")]
+
+    return slugify(slug)
+
+
 def ensure_user_room(user: UserDB, s: Session) -> RoomDB:
     existing = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
     if existing:
