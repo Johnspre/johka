@@ -132,7 +132,7 @@
   const tokenField = $('#privateTokenField');
   const btn = $('#createPrivateBtn');
 
-  if (!toggle) return; // fragment nog niet goed geladen
+  if (!toggle || !options || !modeSel || !keyField || !tokenField || !btn) return; // fragment nog niet goed geladen
 
   // uitklappen
   toggle.addEventListener('change', () => {
@@ -152,8 +152,10 @@
     if (!name) return;
 
     const mode   = modeSel.value;
-    const key    = $('#privateKey')?.value || null;
-    const tokens = Number($('#privateTokens')?.value || 0);
+    const keyInput = $('#privateKey');
+    const tokenInput = $('#privateTokens');
+    const key    = keyInput ? keyInput.value : null;
+    const tokens = Number(tokenInput ? tokenInput.value || 0 : 0);
 
     const token = localStorage.getItem('token');
     if (!token) return alert('Je bent niet ingelogd.');
