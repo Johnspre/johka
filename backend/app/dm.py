@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from database import engine, get_db
 from models import PrivateMessage, UserDB
 from auth import get_current_user  # ⚠️ pas aan naar jouw daadwerkelijke auth-helper
-
+from sqlalchemy import or_
 
 
 router = APIRouter(prefix="/api/dm", tags=["Direct Messages"])
@@ -24,11 +24,18 @@ def send_dm(data: MessageIn, user: UserDB = Depends(get_current_user), s: Sessio
     s.commit()
     return {"ok": True, "message": "Bericht verzonden"}
 
+
+
 @router.get("/inbox")
 def get_inbox(user: UserDB = Depends(get_current_user), s: Session = Depends(get_db)):
     msgs = (
         s.query(PrivateMessage)
-        .filter(PrivateMessage.receiver_id == user.id)
+        .filter(
+            or_(
+                PrivateMessage.receiver_id == user.id,
+                PrivateMessage.sender_id == user.id
+            )
+        )
         .order_by(PrivateMessage.created_at.desc())
         .limit(50)
         .all()
@@ -36,6 +43,7 @@ def get_inbox(user: UserDB = Depends(get_current_user), s: Session = Depends(get
     return [
         {
             "from": m.sender.username,
+            "to": m.receiver.username,
             "message": m.message,
             "time": m.created_at.isoformat(),
             "read": m.read

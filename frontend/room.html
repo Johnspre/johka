@@ -107,25 +107,27 @@
 </div>
 
     <!-- Privé -->
-    <div id="privateTabContent" style="padding:10px;">
-  <div id="dmMessages"
-       style="border:1px solid #ddd;border-radius:8px;
-              padding:10px;height:250px;overflow-y:auto;background:#fff;">
-    <p class="muted">📩 Berichten laden...</p>
-  </div>
+    <div id="privateTab" class="tabContent" style="padding:10px;">
+      <div id="dmMessages"
+           style="border:1px solid #ddd;border-radius:8px;
+                  padding:10px;height:250px;overflow-y:auto;background:#fff;">
+        <p class="muted">📩 Berichten laden...</p>
+      </div>
+
 
   <div style="margin-top:10px;display:flex;gap:5px;">
-    <input id="dmTo" type="text" placeholder="Gebruikersnaam"
-           style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
-    <input id="dmMsg" type="text" placeholder="Typ je bericht..."
-           style="flex:2;padding:8px;border:1px solid #ccc;border-radius:6px;">
-    <button id="dmSendBtn"
-            style="padding:8px 12px;border:0;border-radius:6px;
-                   background:#1677ff;color:white;font-weight:600;cursor:pointer;">
-      Verstuur
-    </button>
-  </div>
-</div>
+        <input id="dmTo" type="text" placeholder="Gebruikersnaam"
+               style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
+        <input id="dmMsg" type="text" placeholder="Typ je bericht..."
+               style="flex:2;padding:8px;border:1px solid #ccc;border-radius:6px;">
+        <button id="dmSendBtn"
+                style="padding:8px 12px;border:0;border-radius:6px;
+                       background:#1677ff;color:white;font-weight:600;cursor:pointer;">
+          Verstuur
+        </button>
+      </div>
+    </div>
+
 
 
     <!-- Instellingen -->
@@ -410,11 +412,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 </script>
 <script>
 const API = "https://api.johka.be/api";
-const token = localStorage.getItem("token");
+
+function getAuthToken() {
+  return localStorage.getItem("token");
+}
 
 async function loadDMs(){
   const box = document.getElementById("dmMessages");
+  if (!box) return;
   box.innerHTML = "<p class='muted'>📩 Laden...</p>";
+
+  const token = getAuthToken();
+  if (!token) {
+    box.innerHTML = "<p class='muted'>🔒 Log in om privéberichten te bekijken.</p>";
+    return;
+  }
+
 
   try {
     const res = await fetch(`${API}/dm/inbox`, {
@@ -449,6 +462,13 @@ async function sendDM(){
   const msg = document.getElementById("dmMsg").value.trim();
   if (!to || !msg) return alert("Vul ontvanger en bericht in.");
 
+  const token = getAuthToken();
+  if (!token) {
+    alert("❌ Je moet ingelogd zijn om een privébericht te versturen.");
+    return;
+  }
+
+
   try {
     const res = await fetch(`${API}/dm/send`, {
       method: "POST",
@@ -467,10 +487,15 @@ async function sendDM(){
   }
 }
 
-document.getElementById("dmSendBtn").addEventListener("click", sendDM);
-window.addEventListener("DOMContentLoaded", loadDMs);
+const dmSendBtn = document.getElementById("dmSendBtn");
+if (dmSendBtn) {
+  dmSendBtn.addEventListener("click", sendDM);
+}
 
-setInterval(loadDMs, 10000);
+window.addEventListener("DOMContentLoaded", () => {
+  loadDMs();
+  setInterval(loadDMs, 10000);
+});
 
 </script>
 
