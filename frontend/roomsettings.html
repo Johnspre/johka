@@ -1,4 +1,5 @@
-<div class="card" id="privateRoomSettings" style="margin-top:10px;padding:10px;background:#f8f8f8;border-radius:10px;">
+<div class="card" id="privateRoomSettings"
+     style="margin-top:10px;padding:10px;background:#f8f8f8;border-radius:10px;">
   <h3>🔒 Privéroom Instellingen</h3>
 
   <label><input type="checkbox" id="isPrivateToggle"> Maak deze room privé</label>
@@ -21,65 +22,103 @@
       <input id="privateTokens" type="number" min="0" value="10">
     </div>
 
-    <button id="createPrivateBtn" style="margin-top:10px;">Privéroom aanmaken</button>
+    <button id="updatePrivateBtn"
+            style="margin-top:10px;padding:8px 12px;border:0;border-radius:8px;
+                   background:#1677ff;color:#fff;font-weight:600;">
+      Opslaan
+    </button>
   </div>
 </div>
+
 <hr style="margin:15px 0;">
 
 <button id="resetPublicBtn"
-  style="background:#ff4d4f;color:white;border:0;border-radius:8px;
-         padding:8px 12px;font-weight:600;cursor:pointer;">
+        style="background:#ff4d4f;color:white;border:0;border-radius:8px;
+               padding:8px 12px;font-weight:600;cursor:pointer;">
   🔓 Terug naar publieke room
 </button>
 
 <script>
 (() => {
   const API_BASE = "https://api.johka.be/api";
-  window.__JOHKA_API_BASE = API_BASE;
+  const $ = (s) => document.querySelector(s);
 
-  const btn = document.getElementById("resetPublicBtn");
-  if (!btn) return;
+  const toggle = $('#isPrivateToggle');
+  const options = $('#privateOptions');
+  const modeSel = $('#privateMode');
+  const keyField = $('#privateKeyField');
+  const tokenField = $('#privateTokenField');
+  const updateBtn = $('#updatePrivateBtn');
+  const resetBtn = $('#resetPublicBtn');
 
   let cachedRoomSlug = null;
 
   async function fetchOwnRoomSlug(token) {
     if (cachedRoomSlug) return cachedRoomSlug;
-
-    const res = await fetch(`${API_BASE}/me`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-
-    if (res.status === 401) {
-      localStorage.removeItem("token");
-      throw new Error("Je sessie is verlopen. Log opnieuw in.");
-    }
-
-    if (!res.ok) {
-      throw new Error("Kon je roomgegevens niet ophalen.");
-    }
-
+    const res = await fetch(`${API_BASE}/me`, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) throw new Error("Kon je roomgegevens niet ophalen.");
     const data = await res.json();
     cachedRoomSlug = data?.room_slug || null;
     return cachedRoomSlug;
   }
 
-  btn.addEventListener("click", async () => {
-    const token = localStorage.getItem("token");
+  // toggle menu tonen
+  toggle.addEventListener('change', () => {
+    options.style.display = toggle.checked ? 'block' : 'none';
+  });
+
+  // wissel velden
+  modeSel.addEventListener('change', () => {
+    const m = modeSel.value;
+    keyField.style.display = (m === 'invite' || m === 'password') ? 'block' : 'none';
+    tokenField.style.display = (m === 'token') ? 'block' : 'none';
+  });
+
+  // 🔒 Privéroom bijwerken
+  updateBtn.addEventListener('click', async () => {
+    const token = localStorage.getItem('token');
     if (!token) return alert("Je bent niet ingelogd.");
 
-    let slug = null;
+    const slug = await fetchOwnRoomSlug(token);
+    if (!slug) return alert("Geen room gevonden.");
+
+    if (!confirm("Weet je zeker dat je deze instellingen wilt toepassen?")) return;
+
+    const mode = modeSel.value;
+    const key = $('#privateKey')?.value || null;
+    const tokens = Number($('#privateTokens')?.value || 0);
+
     try {
-      slug = await fetchOwnRoomSlug(token);
+      const res = await fetch(`${API_BASE}/room/update-access`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          slug,
+          access_mode: mode,
+          access_key: key,
+          token_price: tokens
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.message || res.statusText);
+      alert("✅ Privéroom-instellingen bijgewerkt!");
     } catch (err) {
       console.error(err);
-      alert("❌ Mislukt: " + err.message);
-      return;
+      alert("❌ Fout bij opslaan: " + err.message);
     }
+  });
 
-    if (!slug) {
-      alert("❌ Geen room gekoppeld aan je account.");
-      return;
-    }
+  // 🔓 Terug naar publieke room
+  resetBtn.addEventListener('click', async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return alert("Je bent niet ingelogd.");
+
+    const slug = await fetchOwnRoomSlug(token);
+    if (!slug) return alert("Geen room gekoppeld aan je account.");
 
     if (!confirm(`Weet je zeker dat je de room '${slug}' weer publiek wilt maken?`)) return;
 
@@ -94,84 +133,19 @@
           slug,
           access_mode: "public",
           access_key: null,
-          token_price: 0,
-        }),
+          token_price: 0
         })
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch (_) {
-        data = {};
-      }
-
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || data.message || res.statusText);
-      alert("✅ Room is nu publiek!");
 
-      const toggle = document.getElementById("isPrivateToggle");
-      const options = document.getElementById("privateOptions");
-      if (toggle) toggle.checked = false;
-      if (options) options.style.display = "none";
+      alert("✅ Room is nu publiek!");
+      toggle.checked = false;
+      options.style.display = "none";
     } catch (err) {
       console.error(err);
       alert("❌ Mislukt: " + err.message);
-    }
-  });
-})();
-</script>
-
-<script>
-(() => {
-  const API_BASE = window.__JOHKA_API_BASE || "https://api.johka.be/api";
-  const $ = (s) => document.querySelector(s);
-  const toggle = $('#isPrivateToggle');
-  const options = $('#privateOptions');
-  const modeSel = $('#privateMode');
-  const keyField = $('#privateKeyField');
-  const tokenField = $('#privateTokenField');
-  const btn = $('#createPrivateBtn');
-
-  if (!toggle || !options || !modeSel || !keyField || !tokenField || !btn) return; // fragment nog niet goed geladen
-
-  // uitklappen
-  toggle.addEventListener('change', () => {
-    options.style.display = toggle.checked ? 'block' : 'none';
-  });
-
-  // velden wisselen op basis van modus
-  modeSel.addEventListener('change', () => {
-    const m = modeSel.value;
-    keyField.style.display   = (m === 'invite' || m === 'password') ? 'block' : 'none';
-    tokenField.style.display = (m === 'token') ? 'block' : 'none';
-  });
-
-  // aanmaken
-  btn.addEventListener('click', async () => {
-    const name   = prompt('Naam van privéroom:', 'mijn-room');
-    if (!name) return;
-
-    const mode   = modeSel.value;
-    const keyInput = $('#privateKey');
-    const tokenInput = $('#privateTokens');
-    const key    = keyInput ? keyInput.value : null;
-    const tokens = Number(tokenInput ? tokenInput.value || 0 : 0);
-
-    const token = localStorage.getItem('token');
-    if (!token) return alert('Je bent niet ingelogd.');
-
-    try {
-      const r = await fetch(`${API_BASE}/room/create-private`, {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, access_mode: mode, access_key: key, token_price: tokens })
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || r.statusText);
-      alert(`✅ Privéroom aangemaakt!\nSlug: ${data.slug}\nToegang: ${data.access_mode}`);
-    } catch (e) {
-      console.error(e);
-      alert('❌ Mislukt: ' + e.message);
     }
   });
 })();
