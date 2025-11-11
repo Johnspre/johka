@@ -107,9 +107,26 @@
 </div>
 
     <!-- Privé -->
-    <div id="privateTab" class="tabContent">
-      <p>🔒 Privéberichten of sessies komen hier…</p>
-    </div>
+    <div id="privateTabContent" style="padding:10px;">
+  <div id="dmMessages"
+       style="border:1px solid #ddd;border-radius:8px;
+              padding:10px;height:250px;overflow-y:auto;background:#fff;">
+    <p class="muted">📩 Berichten laden...</p>
+  </div>
+
+  <div style="margin-top:10px;display:flex;gap:5px;">
+    <input id="dmTo" type="text" placeholder="Gebruikersnaam"
+           style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
+    <input id="dmMsg" type="text" placeholder="Typ je bericht..."
+           style="flex:2;padding:8px;border:1px solid #ccc;border-radius:6px;">
+    <button id="dmSendBtn"
+            style="padding:8px 12px;border:0;border-radius:6px;
+                   background:#1677ff;color:white;font-weight:600;cursor:pointer;">
+      Verstuur
+    </button>
+  </div>
+</div>
+
 
     <!-- Instellingen -->
     <div id="settingsTab" class="tabContent">
@@ -388,6 +405,73 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("Kon walletsaldo niet ophalen:", err);
   }
 });
+
+// verwijder heel script
+</script>
+<script>
+const API = "https://api.johka.be/api";
+const token = localStorage.getItem("token");
+
+async function loadDMs(){
+  const box = document.getElementById("dmMessages");
+  box.innerHTML = "<p class='muted'>📩 Laden...</p>";
+
+  try {
+    const res = await fetch(`${API}/dm/inbox`, {
+      headers: { "Authorization": "Bearer " + token }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const msgs = await res.json();
+    if (!msgs.length){
+      box.innerHTML = "<p class='muted'>Nog geen privéberichten.</p>";
+      return;
+    }
+    box.innerHTML = "";
+    for (const m of msgs){
+      const div = document.createElement("div");
+      div.className = "dm-item";
+      div.style.padding = "6px";
+      div.style.borderBottom = "1px solid #eee";
+      div.innerHTML = `<b>${m.from}</b>: ${m.message}
+        <span style="font-size:12px;color:#999;">
+          (${new Date(m.time).toLocaleTimeString()})
+        </span>`;
+      box.appendChild(div);
+    }
+  } catch (err){
+    console.error(err);
+    box.innerHTML = "<p class='muted'>❌ Fout bij laden.</p>";
+  }
+}
+
+async function sendDM(){
+  const to = document.getElementById("dmTo").value.trim();
+  const msg = document.getElementById("dmMsg").value.trim();
+  if (!to || !msg) return alert("Vul ontvanger en bericht in.");
+
+  try {
+    const res = await fetch(`${API}/dm/send`, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ to_username: to, message: msg })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || "Fout bij verzenden");
+    document.getElementById("dmMsg").value = "";
+    loadDMs();
+  } catch (err){
+    alert("❌ " + err.message);
+  }
+}
+
+document.getElementById("dmSendBtn").addEventListener("click", sendDM);
+window.addEventListener("DOMContentLoaded", loadDMs);
+
+setInterval(loadDMs, 10000);
+
 </script>
 
 </body>

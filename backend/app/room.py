@@ -15,35 +15,151 @@ from io import BytesIO
 from typing import Optional
 from uuid import uuid4
 
+import psycopg2
+from dotenv import load_dotenv
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
-from jose import jwt
+from jose import JWTError, jwt
 from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from main import RoomDB, UserDB  # of het juiste pad naar jouw modellen
-from main import Wallet, WalletHistory
-from main import get_db as db  # <--- dit is de fix
+from database import engine, get_db
+from models import RoomDB, UserDB, Wallet, WalletHistory
 
 
-# 🔄 Hergebruik bestaande helpers uit main.py om dubbele logica te vermijden.
-from main import (
-    LIVEKIT_API_KEY,
-    LIVEKIT_API_SECRET,
-    LIVEKIT_URL,
-    PREVIEW_DIR,
-    _get_env,
-    _normalize_room_slug,
-    _psql,
-    ensure_user_room,
-    engine,
-    get_current_user,
-    get_db,
-    get_optional_user,
-    slugify,
+load_dotenv()
+
+
+def _get_env(name: str, default: Optional[str] = None, *, required: bool = False) -> Optional[str]:
+    value = os.getenv(name, default)
+    if required and (value is None or value == ""):
+        raise RuntimeError(f"Environment variable '{name}' is required")
+    return value
+
+
+JWT_SECRET = _get_env("JWT_SECRET", "MyUltraSecretKey")
+JWT_ALGORITHM = "HS256"
+
+POSTGRES_USER = _get_env("POSTGRES_USER", "johka")
+POSTGRES_PASSWORD = _get_env("POSTGRES_PASSWORD", required=True)
+POSTGRES_HOST = _get_env("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = _get_env("POSTGRES_PORT", "5432")
+POSTGRES_DB = _get_env("POSTGRES_DB", "johka")
+
+PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
+    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
+
+LIVEKIT_API_KEY = _get_env("LIVEKIT_API_KEY", "johka_live_key")
+LIVEKIT_API_SECRET = _get_env("LIVEKIT_API_SECRET", required=True)
+LIVEKIT_URL = _get_env("LIVEKIT_URL", "wss://live.johka.be")
+
+UPLOAD_ROOT = "/app/static/uploads"
+AVATAR_DIR = os.path.join(UPLOAD_ROOT, "avatars")
+GALLERY_DIR = os.path.join(UPLOAD_ROOT, "gallery")
+PREVIEW_DIR = os.path.join(UPLOAD_ROOT, "previews")
+
+db = get_db
+
+
+def slugify(s: str) -> str:
+    import re
+
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s or "room"
+
+
+def _normalize_room_slug(raw_slug: str) -> str:
+    slug = raw_slug.strip().lower()
+    if slug.endswith("-room"):
+        slug = slug[: -len("-room")]
+    return slugify(slug)
+
+
+def ensure_user_room(user: UserDB, s: Session) -> RoomDB:
+    existing = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if existing:
+        return existing
+
+    base_title = user.username or f"Creator {user.id}"
+    base_slug = slugify(base_title)[:60] or f"room-{user.id}"
+    slug = base_slug
+    suffix = 1
+    while s.query(RoomDB).filter(RoomDB.slug == slug).first():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    room = RoomDB(user_id=user.id, name=base_title, slug=slug)
+    s.add(room)
+    try:
+        s.commit()
+    except IntegrityError:
+        s.rollback()
+        slug = f"{base_slug}-{uuid4().hex[:6]}"
+        room = RoomDB(user_id=user.id, name=base_title, slug=slug)
+        s.add(room)
+        s.commit()
+
+    s.refresh(room)
+    return room
+
+
+def _psql():
+    return psycopg2.connect(PSYCOPG_URL)
+
+
+def _resolve_authorization_user(
+    token_header: Optional[str],
+    s: Session,
+) -> UserDB:
+    if not token_header:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    parts = token_header.strip().split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization format")
+
+    token = parts[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty token")
+
+    try:
+        data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    uid = data.get("sub")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    u = s.get(UserDB, int(uid))
+    if not u:
+        raise HTTPException(status_code=401, detail="User not found")
+    return u
+
+
+def get_current_user(
+    request: Request,
+    authorization: Optional[str] = None,
+    s: Session = Depends(db),
+) -> UserDB:
+    token_header = authorization or request.headers.get("authorization")
+    return _resolve_authorization_user(token_header, s)
+
+
+def get_optional_user(
+    request: Request,
+    authorization: Optional[str] = None,
+    s: Session = Depends(db),
+) -> Optional[UserDB]:
+    token_header = authorization or request.headers.get("authorization")
+    if not token_header:
+        return None
+    return _resolve_authorization_user(token_header, s)
+
 
 def log_room_action(
     s: Session,
@@ -684,16 +800,7 @@ def join_private_room(
         "room_slug": room.slug,
         "access_mode": room.access_mode,
     }
-# 👇 import bovenaan (als het er nog niet staat)
-from pydantic import BaseModel
-from fastapi import HTTPException, Depends
-from sqlalchemy.orm import Session
-from main import RoomDB, UserDB  # of het juiste pad naar jouw modellen
-from main import Wallet, WalletHistory
-from main import get_db as db  # <--- dit is de fix
 
-
-# 👇 deze klasse en functie onderaan toevoegen
 class RoomUpdateIn(BaseModel):
     slug: str
     access_mode: str = "public"     # public | invite | password | token
@@ -719,9 +826,6 @@ def update_room_access(
     return {"ok": True, "message": f"Room '{room.slug}' bijgewerkt"}
 
 
-# Registreer de routers nadat alle endpoints gedefinieerd zijn om te vermijden
-# dat een lege router wordt toegevoegd (wat 404's veroorzaakte in de API).
-router.include_router(room_router)
 router.include_router(_public_router)
 
 

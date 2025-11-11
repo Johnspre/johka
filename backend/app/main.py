@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 from bcrypt import hashpw, gensalt
 from admin import router as admin_router
 
+from database import Base, SessionLocal, engine, get_db
+from models import RoomDB, Tip, UserDB, Wallet, WalletHistory
+
 
 # ---------- FastAPI & Security ----------
 from fastapi import (
@@ -27,21 +30,11 @@ from starlette.responses import JSONResponse
 # ---------- DB ----------
 import psycopg2
 from sqlalchemy import (
-    create_engine,
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Date,
-    Boolean,
-    func,
-    ForeignKey,
-    UniqueConstraint,
     text,
     or_,
     Text,
 )
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 # ---------- Auth / Hashing ----------
@@ -70,6 +63,10 @@ app = FastAPI(title="Johka Live API", version="1.0")
 
 # 🔗 Voeg daarna de router(s) toe
 app.include_router(admin_router)
+
+from dm import router as dm_router
+app.include_router(dm_router)
+
 # ============================================
 # ENV & CONFIG
 # ============================================
@@ -83,10 +80,7 @@ POSTGRES_HOST = _get_env("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = _get_env("POSTGRES_PORT", "5432")
 POSTGRES_DB = _get_env("POSTGRES_DB", "johka")
 
-SQLALCHEMY_URL = _get_env("SQLALCHEMY_URL") or (
-    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
-    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
+
 PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
     f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
@@ -149,88 +143,8 @@ app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 # DATABASE
 # ============================================
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-engine = create_engine(SQLALCHEMY_URL, pool_pre_ping=True, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-Base = declarative_base()
 
-
-def db() -> Session:
-    s = SessionLocal()
-    try:
-        yield s
-    finally:
-        s.close()
-
-
-def get_db():
-    """Compatibele alias zodat andere modules de DB-sessie kunnen opvragen."""
-
-    yield from db()
-
-
-
-# ============================================
-# MODELS
-# ============================================
-class UserDB(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    username = Column(String(32), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    birthdate = Column(Date, nullable=True)
-    verify_token = Column(String(255), unique=True, nullable=True)
-    is_verified = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, server_default=func.now())
-    bio = Column(Text, nullable=True, default="")
-    # dynamic columns (avatar_url, gallery_json, wallet_balance) kunnen later via ALTER worden toegevoegd
-    room = relationship("RoomDB", back_populates="owner", uselist=False)
-    wallet = relationship("Wallet", back_populates="owner", uselist=False)
-
-
-class RoomDB(Base):
-    __tablename__ = "rooms"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
-    name = Column(String(64), nullable=False)
-    slug = Column(String(64), unique=True, nullable=False, index=True)
-    temp_subject = Column(String(100), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    owner = relationship("UserDB", back_populates="room")
-    __table_args__ = (UniqueConstraint("slug", name="uq_room_slug"),)
-    is_private   = Column(Boolean, nullable=False, server_default="false")
-    access_mode  = Column(Text,    nullable=False, server_default="public")  # 'public'|'invite'|'password'|'token'
-    access_key   = Column(Text,    nullable=True)                            # password/invite code
-    token_price  = Column(Integer, nullable=False, server_default="0")       # aantal tokens bij 'token'
-
-
-class Wallet(Base):
-    __tablename__ = "wallets"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    balance = Column(Integer, default=0)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    owner = relationship("UserDB", back_populates="wallet")
-
-class WalletHistory(Base):
-    __tablename__ = "wallet_history"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    change = Column(Integer, nullable=False)
-    reason = Column(String, default="mollie")
-    created_at = Column(DateTime, server_default=func.now())
-
-
-class Tip(Base):
-    __tablename__ = "tips"
-    id = Column(Integer, primary_key=True)
-    from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    to_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    amount = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    from_user = relationship("UserDB", foreign_keys=[from_user_id])
-    to_user = relationship("UserDB", foreign_keys=[to_user_id])
-
+db = get_db
 
 # ============================================
 # SCHEMAS
@@ -398,7 +312,7 @@ def get_optional_user(
 # ============================================
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(bind=engine)
     # Zorg dat iedereen een wallet heeft
     with SessionLocal() as s:
         try:
@@ -452,8 +366,8 @@ from sqlalchemy.orm import Session
 
 # 📨 Mailconfig (leest uit .env)
 conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
     MAIL_FROM=os.getenv("MAIL_FROM", "noreply@johka.be"),
     MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
     MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp-auth.mailprotect.be"),

@@ -1,19 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
-import os
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-# --- Database connectie ---
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://johka:SuperSterkWachtwoord123@postgres:5432/johka")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+from database import get_db
 
 # --- Router ---
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
