@@ -663,10 +663,11 @@ footer {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  width: 360px;
+  width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 16px;
   box-shadow: 0 2px 6px rgba(0,0,0,.05);
+  min-width: 0;
 }
 
 /* ---- stream status ---- */
@@ -731,12 +732,19 @@ footer {
 
 /* ---- tab inhoud ---- */
 .tab-content {
-  flex: 1;
+  flex: 1 1 auto;
   border: 1px solid #ccc;
   border-radius: 0 6px 6px 6px;
   padding: 10px;
   display: none;
-  overflow-y: auto;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.tab-content.active {
+  display: flex;
 }
 
 /* ---- chatbox ---- */
@@ -745,15 +753,22 @@ footer {
   border: 1px solid #eee;
   border-radius: 6px;
   padding: 8px;
-  max-height: 250px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+#messageLog {
+  flex: 1 1 auto;
   overflow-y: auto;
-  margin-bottom: 8px;
 }
 .chat-input-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin: 0;
 }
 .chat-input-bar input {
   flex: 1;
@@ -851,26 +866,22 @@ footer {
 #chatTab {
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
+  flex: 1 1 auto;
 }
 
 /* Chatlog vult alle beschikbare ruimte */
 #chatBox {
-  flex-grow: 1;
-  overflow-y: auto;
-  background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  padding: 8px;
-  margin-bottom: 8px;
+  flex: 1 1 auto;
+  overflow-y: hidden;
+  margin-bottom: 0;
 }
 
 /* Chat-inputbalk en tipbalk vast onderaan */
 .chat-input-bar,
 #donationBar {
   position: relative;
-  bottom: 0;
-  left: 0;
+  bottom: auto;
+  left: auto;
   width: 100%;
 }
 
