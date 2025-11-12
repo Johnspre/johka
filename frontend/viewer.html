@@ -48,7 +48,7 @@
 
   </section>
 
-  <!-- 🎬 VIEWER RECHTERKOLOM -->
+<!-- 🎬 VIEWER RECHTERKOLOM -->
 <aside id="viewer-right" class="side-panel">
 
   <!-- 🔴 STREAM STATUS -->
@@ -69,7 +69,7 @@
   </div>
 
   <!-- 💬 CHAT TAB -->
-  <div id="chatTab" class="tab-content active"></div>
+  <div id="chatTab" class="tab-content active">
     <div id="chatBox">
       <div id="messageLog">Verbinden met stream...</div>
     </div>
@@ -118,6 +118,7 @@
   </div>
 
 </aside>
+
   <!-- Creator info / bio panel zoals Chaturbate -->
   <section id="creatorInfoBox">
     <div id="creatorTabs">
@@ -136,13 +137,42 @@
   <script type="module" src="/js/viewer.js"></script>
   <script src="/js/navbar-auth.js"></script>
 
+  
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const tabs = document.querySelectorAll(".tab");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      // Verwijder active van alle tabs
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+
+      // Verberg alle tab-content
+      tabContents.forEach(c => {
+        c.classList.remove("active");
+        c.style.display = "none";
+      });
+
+      // Toon de juiste tab-content
+      const target = document.getElementById(tab.dataset.tab + "Tab");
+      if (target) {
+        target.classList.add("active");
+        target.style.display = "block";
+      }
+    });
+  });
+});
+</script>
+
 <script>
   // ---- eenvoudige roster buffer ----
   const rosterByKey = new Map();
 
   function trackParticipant(p) {
     rosterByKey.set(p.identity || p.sid, {
-      username: p.identity || "Anonymous"
+      username: p.identity || "Anonymous",
     });
   }
 
@@ -172,7 +202,7 @@
   }
 
   // ---- wacht tot lkRoom bestaat, dan initialiseren ----
-  (function waitForRoom(){
+  (function waitForRoom() {
     if (window.lkRoom) {
       // init eerste keer
       syncRosterFromRoom();
@@ -184,41 +214,30 @@
   })();
 
   // ---- tabs zichtbaar maken + users-tab triggeren ----
-  (function initTabs(){
-    const tabs = document.querySelectorAll('#streamStatusBox .tab');
-    const panels = document.querySelectorAll('.tabContent');
-    tabs.forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        // active state
-        tabs.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        // show/hide panels
-        panels.forEach(p=>p.style.display='none');
-        const id = (btn.dataset.tab || '') + 'Tab';
-        const panel = document.getElementById(id);
-        if (panel) panel.style.display = 'block';
-        // bij openen van Users-tab: meteen syncen
-        if (id === 'usersTab') syncRosterFromRoom();
+  (function initTabs() {
+    const tabButtons = document.querySelectorAll(".tab-bar .tab");
+    const tabPanels = document.querySelectorAll(".tab-content");
+
+    tabButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabButtons.forEach((b) => b.classList.remove("active"));
+        tabPanels.forEach((panel) => panel.classList.remove("active"));
+
+        btn.classList.add("active");
+        const targetId = `${btn.dataset.tab}Tab`;
+        const panel = document.getElementById(targetId);
+        if (panel) {
+          panel.classList.add("active");
+          if (targetId === "usersTab") {
+            syncRosterFromRoom();
+          }
+        }
       });
     });
   })();
 </script>
 
-<script>
-const tabs = document.querySelectorAll('.tab-bar .tab');
-const tabPanels = document.querySelectorAll('.tab-content');
 
-tabs.forEach((tab) => {
-  tab.addEventListener('click', () => {
-    tabs.forEach((t) => t.classList.remove('active'));
-    tabPanels.forEach((panel) => panel.classList.remove('active'));
-
-    tab.classList.add('active');
-    const pane = document.getElementById(`${tab.dataset.tab}Tab`);
-    if (pane) pane.classList.add('active');
-  });
-});
-</script>
 
 
 

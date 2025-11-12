@@ -735,7 +735,7 @@ footer {
   flex: 1 1 auto;
   border: 1px solid #ccc;
   border-radius: 0 6px 6px 6px;
-  padding: 10px;
+  padding: 12px;
   display: none;
   flex-direction: column;
   gap: 10px;
@@ -888,4 +888,54 @@ footer {
 .leave-btn {
   margin-top: 10px;
   align-self: flex-start;
+}
+/* 🎬 Rechterkolom stabiel houden */
+#viewer-right.side-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: calc(100vh - 80px) !important;
+  overflow: hidden !important;
+}
+
+/* Tabs bovenaan */
+.tab-bar {
+  display: flex !important;
+  justify-content: space-around !important;
+  border-bottom: 1px solid #ddd !important;
+  margin-bottom: 5px !important;
+}
+
+/* 💬 Tab-inhoud vult kolom en blijft stabiel */
+.tab-content {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 10px !important;
+  transition: opacity 0.2s ease-in-out !important;
+}
+
+.tab-content:not(.active) {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.tab-content.active {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  opacity: 1 !important;
+}
+
+/* Chatvenster */
+#chatBox {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  margin-bottom: 10px !important;
+}
+
+/* Onderste knoppen */
+.chat-input-bar,
+#donationBar,
+.leave-btn {
+  margin-top: 5px !important;
 }

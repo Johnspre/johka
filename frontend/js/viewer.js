@@ -412,6 +412,8 @@ function setupRoomEvents(room) {
     })
     .on(RoomEvent.ParticipantConnected, updateViewerCount)
     .on(RoomEvent.ParticipantDisconnected, updateViewerCount)
+    .on(RoomEvent.ParticipantConnected, () => { try { syncRosterFromRoom(); } catch {} })
+    .on(RoomEvent.ParticipantDisconnected, () => { try { syncRosterFromRoom(); } catch {} })
     .on(RoomEvent.DataReceived, handleIncomingData)
     .on(RoomEvent.Disconnected, () => handleRoomDisconnected(room));
 }
@@ -522,6 +524,7 @@ async function joinRoomWithToken(tokenData) {
   clearAudioUnlockHandler();
   const room = new Room({ adaptiveStream: true, dynacast: true });
   lkRoom = room;
+  window.lkRoom = room;
   setChatEnabled(false);
   showOverlay("Verbonden – wachten op video...");
   setupRoomEvents(room);
@@ -787,6 +790,7 @@ window.addEventListener("beforeunload", () => {
 
 start();
 
+
 // === EMOJI PICKER VOOR VIEWER CHAT ===
 (function setupViewerEmojiPicker () {
   const btn = document.getElementById("viewerEmojiBtn");
@@ -868,6 +872,60 @@ function loadEmbeddedCreatorPage() {
   box.innerHTML = "";
   box.appendChild(iframe);
 }
+
+// === Gebruikerslijst via LiveKit (voor Users-tab) ===
+const rosterByKey = new Map();
+
+function trackParticipant(p) {
+  // identiteit ophalen
+  let rawId = p.identity || p.name || p.sid || "onbekend";
+
+  // ✂️ alles na een # of _ verwijderen
+  rawId = rawId.split("#")[0].split("_")[0];
+
+  // optioneel trimmen voor zekerheid
+  const cleanName = rawId.trim();
+
+  rosterByKey.set(cleanName, { name: cleanName });
+}
+
+
+function updateViewerList() {
+  const list = document.getElementById("userList");
+  if (!list) return;
+  list.innerHTML = "";
+  rosterByKey.forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = (u.name || "").split("#")[0]; // verwijdert alles na het #
+    list.appendChild(li);
+  });
+}
+
+function syncRosterFromRoom() {
+  rosterByKey.clear();
+  const r = window.lkRoom;
+  if (!r) return;
+  if (r.localParticipant) trackParticipant(r.localParticipant);
+  r.remoteParticipants?.forEach(p => trackParticipant(p));
+  updateViewerList();
+}
+
+// 👉 start zodra de room klaar is
+if (window.lkRoom) {
+  window.lkRoom.on(RoomEvent.ParticipantConnected, syncRosterFromRoom);
+  window.lkRoom.on(RoomEvent.ParticipantDisconnected, syncRosterFromRoom);
+  syncRosterFromRoom();
+} else {
+  const wait = setInterval(() => {
+    if (window.lkRoom) {
+      clearInterval(wait);
+      syncRosterFromRoom();
+      window.lkRoom.on(RoomEvent.ParticipantConnected, syncRosterFromRoom);
+      window.lkRoom.on(RoomEvent.ParticipantDisconnected, syncRosterFromRoom);
+    }
+  }, 500);
+}
+
 
 // aanroepen zodra de pagina klaar is
 window.addEventListener("DOMContentLoaded", loadEmbeddedCreatorPage);
