@@ -656,3 +656,225 @@ footer {
   margin: 4px 0;
   font-weight: 600;
 }
+/* ---- rechterkolom ---- */
+.side-panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  height: 100%;
+  padding: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+}
+
+/* ---- stream status ---- */
+.stream-status {
+  text-align: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 6px;
+}
+#statusBadge {
+  font-weight: 700;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#statusBadge span:first-child {
+  font-size: 18px;
+}
+#statusBadge.online span:first-child {
+  color: #00b578;
+}
+#statusBadge.offline span:first-child {
+  color: #ff4d4f;
+}
+#creatorName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222;
+  margin-top: 2px;
+}
+#viewerCount {
+  color: #666;
+  font-size: 13px;
+}
+
+/* ---- tabs ---- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+.tab {
+  flex: 1;
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 6px 6px 0 0;
+  padding: 6px 4px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.tab:hover {
+  background: #fff5ef;
+}
+.tab.active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  color: #ff6600;
+}
+
+/* ---- tab inhoud ---- */
+.tab-content {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 0 6px 6px 6px;
+  padding: 10px;
+  display: none;
+  overflow-y: auto;
+}
+
+/* ---- chatbox ---- */
+#chatBox {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.chat-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chat-input-bar input {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+.chat-input-bar button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#chatSendBtn {
+  background: #ff6600;
+  color: white;
+}
+#chatSendBtn:hover {
+  background: #e25500;
+}
+#viewerEmojiBtn {
+  background: #f3f3f3;
+}
+
+/* ---- donatiebalk ---- */
+#donationBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#donateInput {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: right;
+}
+#donateBtn {
+  background: #ff6600;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+#donateBtn:hover {
+  background: #e25500;
+}
+
+/* ---- userlist ---- */
+#userList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#userList li {
+  padding: 5px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+#userList li:last-child {
+  border-bottom: none;
+}
+#anonCount {
+  margin-top: 8px;
+  color: #777;
+  font-size: 13px;
+  text-align: right;
+}
+/* ===== Globale lay-out aanpassing ===== */
+.viewer-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px; /* rechterkolom iets breder */
+  gap: 24px; /* ruimte tussen video en rechterpaneel */
+  align-items: stretch;
+  height: 100vh; /* volledige hoogte */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* ===== Rechterpaneel positionering ===== */
+#viewer-right,
+.side-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(100vh - 100px); /* marge voor bovenbalk */
+}
+
+/* ===== Chatgedeelte netjes vullen ===== */
+#chatTab {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+/* Chatlog vult alle beschikbare ruimte */
+#chatBox {
+  flex-grow: 1;
+  overflow-y: auto;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+/* Chat-inputbalk en tipbalk vast onderaan */
+.chat-input-bar,
+#donationBar {
+  position: relative;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+
+.leave-btn {
+  margin-top: 10px;
+  align-self: flex-start;
+}

@@ -48,13 +48,28 @@
 
   </section>
 
-  <aside id="viewer-right">
-    <div id="streamStatusBox">
-      <div id="statusBadge" class="offline"><span>●</span><span id="statusText">Offline</span></div>
-      <div id="creatorName">Onbekend</div>
-      <div id="viewerCount">👁 0 kijkers</div>
-    </div>
+  <!-- 🎬 VIEWER RECHTERKOLOM -->
+<aside id="viewer-right" class="side-panel">
 
+  <!-- 🔴 STREAM STATUS -->
+  <div id="streamStatusBox" class="stream-status">
+    <div id="statusBadge" class="offline">
+      <span>●</span><span id="statusText">Offline</span>
+    </div>
+    <div id="creatorName">Onbekend</div>
+    <div id="viewerCount">👁 0 kijkers</div>
+  </div>
+
+  <!-- 🔸 Tabs -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="chat">💬 Chat</button>
+    <button class="tab" data-tab="pm">💌 PM</button>
+    <button class="tab" data-tab="users">👥 Users</button>
+    <button class="tab" data-tab="settings">⚙️ Instellingen</button>
+  </div>
+
+  <!-- 💬 CHAT TAB -->
+  <div id="chatTab" class="tab-content" style="display:block;">
     <div id="chatBox">
       <div id="messageLog">Verbinden met stream...</div>
     </div>
@@ -65,26 +80,44 @@
       <button id="chatSendBtn" type="submit">Verstuur</button>
       <div id="emojiPopup" class="hidden"></div>
     </form>
+
     <div id="chatNotice"></div>
 
-    <!-- 💸 DONATIEBALK -->
-<div id="donationBar">
-  <input
-    id="donateInput"
-    type="number"
-    min="1"
-    step="1"
-    value="10"
-    inputmode="numeric"
-  />
-  <button id="donateBtn">💸 Tip</button>
-</div>
-
-
-
+    <!-- 💸 Donatiebalk -->
+    <div id="donationBar">
+      <input id="donateInput" type="number" min="1" step="1" value="10" inputmode="numeric" />
+      <button id="donateBtn">💸 Tip</button>
+    </div>
 
     <button id="leaveBtn" class="leave-btn">🚪 Verlaat kamer</button>
-  </aside>
+  </div>
+
+  <!-- 💌 PRIVÉ TAB -->
+  <div id="pmTab" class="tab-content">
+    <p>Privéberichten of sessies komen hier…</p>
+  </div>
+
+  <!-- 👥 USERS TAB -->
+  <div id="usersTab" class="tab-content">
+    <ul id="userList"></ul>
+    <p id="anonCount">+0 anonymous users</p>
+  </div>
+
+  <!-- ⚙️ INSTELLINGEN TAB -->
+  <div id="settingsTab" class="tab-content">
+    <h4>⚙️ Instellingen</h4>
+    <label>Fontgrootte:
+      <select>
+        <option>9 pt</option>
+        <option>10 pt</option>
+        <option>11 pt</option>
+      </select>
+    </label>
+    <br />
+    <label><input type="checkbox" checked /> Toon emoticons</label>
+  </div>
+
+</aside>
   <!-- Creator info / bio panel zoals Chaturbate -->
   <section id="creatorInfoBox">
     <div id="creatorTabs">
@@ -103,6 +136,85 @@
   <script type="module" src="/js/viewer.js"></script>
   <script src="/js/navbar-auth.js"></script>
 
+<script>
+  // ---- eenvoudige roster buffer ----
+  const rosterByKey = new Map();
+
+  function trackParticipant(p) {
+    rosterByKey.set(p.identity || p.sid, {
+      username: p.identity || "Anonymous"
+    });
+  }
+
+  function updateViewerList() {
+    const userList = document.getElementById("userList");
+    if (!userList) return;
+    userList.innerHTML = "";
+    rosterByKey.forEach((entry) => {
+      const li = document.createElement("li");
+      li.textContent = entry.username;
+      userList.appendChild(li);
+    });
+    const anon = document.getElementById("anonCount");
+    if (anon) anon.textContent = "+0 anonymous users";
+  }
+
+  function syncRosterFromRoom() {
+    const room = window.lkRoom;
+    if (!room) return; // nog niet klaar
+    rosterByKey.clear();
+
+    if (room.localParticipant) trackParticipant(room.localParticipant);
+    if (room.remoteParticipants instanceof Map) {
+      room.remoteParticipants.forEach((p) => trackParticipant(p));
+    }
+    updateViewerList();
+  }
+
+  // ---- wacht tot lkRoom bestaat, dan initialiseren ----
+  (function waitForRoom(){
+    if (window.lkRoom) {
+      // init eerste keer
+      syncRosterFromRoom();
+      // fallback: periodiek verversen
+      setInterval(syncRosterFromRoom, 5000);
+    } else {
+      setTimeout(waitForRoom, 400);
+    }
+  })();
+
+  // ---- tabs zichtbaar maken + users-tab triggeren ----
+  (function initTabs(){
+    const tabs = document.querySelectorAll('#streamStatusBox .tab');
+    const panels = document.querySelectorAll('.tabContent');
+    tabs.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        // active state
+        tabs.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        // show/hide panels
+        panels.forEach(p=>p.style.display='none');
+        const id = (btn.dataset.tab || '') + 'Tab';
+        const panel = document.getElementById(id);
+        if (panel) panel.style.display = 'block';
+        // bij openen van Users-tab: meteen syncen
+        if (id === 'usersTab') syncRosterFromRoom();
+      });
+    });
+  })();
+</script>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    tab.classList.add('active');
+    const pane = document.getElementById(tab.dataset.tab + 'Tab');
+    if (pane) pane.style.display = 'block';
+  });
+});
+</script>
 
 
 

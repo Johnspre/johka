@@ -9,9 +9,17 @@ from dotenv import load_dotenv
 # 🔐 Laad alle gevoelige data via .env
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET")
-ALGORITHM = os.getenv("ALGORITHM")
-
+# Zorg voor veilige defaults zodat dezelfde configuratie als main.py geldt
+# wanneer omgevingsvariabelen ontbreken. Dit voorkomt dat token-validatie
+# faalt (en dus 401's oplevert) in ontwikkel- of testomgevingen waar alleen
+# ``JWT_SECRET`` is ingesteld.
+DEFAULT_ALGORITHM = "HS256"
+SECRET_KEY = (
+    os.getenv("JWT_SECRET")
+    or os.getenv("SECRET_KEY")
+    
+)
+ALGORITHM = os.getenv("ALGORITHM", DEFAULT_ALGORITHM)
 
 
 # helper: token decoderen
@@ -22,7 +30,11 @@ def verify_token(token: str):
     except JWTError:
         # Als dat mislukt, probeer LiveKit-stijl (zonder verificatie)
         try:
-            payload = jwt.decode(token, options={"verify_signature": False})
+            payload = jwt.decode(
+                token,
+                options={"verify_signature": False},
+                algorithms=[ALGORITHM or DEFAULT_ALGORITHM],
+            )
         except Exception:
             raise HTTPException(status_code=401, detail="Ongeldige of verlopen token")
 

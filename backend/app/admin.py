@@ -4,14 +4,17 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 
+import os
+
 # --- Router ---
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 # --- Admin verificatie ---
 def verify_admin(adminkey: str = Header(None)):
-    if adminkey != os.getenv("ADMIN_KEY", "Admin"):
+    if not adminkey or adminkey != os.getenv("ADMIN_KEY"):
         raise HTTPException(status_code=401, detail="Unauthorized admin key")
     return True
+
 
 # === ROUTES ===
 

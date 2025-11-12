@@ -217,8 +217,7 @@ _public_router = APIRouter(tags=["Room"])
 
 # Dit is de router die in main.py wordt geregistreerd.
 router = APIRouter()
-router.include_router(room_router)
-router.include_router(_public_router)
+
 
 
 # ===============================================================
@@ -825,7 +824,7 @@ def update_room_access(
     s.commit()
     return {"ok": True, "message": f"Room '{room.slug}' bijgewerkt"}
 
-
+router.include_router(room_router)
 router.include_router(_public_router)
 
 
