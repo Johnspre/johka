@@ -50,21 +50,28 @@ function getParticipantKey(participant) {
 }
 
 function parseParticipantMetadata(raw) {
-  if (typeof raw !== "string" || !raw.trim()) return {};
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    console.warn("Kon participant metadata niet parsen:", err);
-    return {};
+  let meta = {};
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      meta = JSON.parse(raw);
+    } catch (err) {
+      console.warn("Kon participant metadata niet parsen:", err);
+    }
   }
+  return meta;
 }
 
 function buildRosterEntry(participant) {
   if (!participant) return null;
   const meta = parseParticipantMetadata(participant.metadata);
   const identity = typeof participant.identity === "string" ? participant.identity.trim() : "";
-  const username = typeof meta.username === "string" ? meta.username.trim() : "";
-  const gender = typeof meta.gender === "string" ? meta.gender.toLowerCase() : null;
+  const username =
+    typeof meta.display_name === "string" && meta.display_name.trim()
+      ? meta.display_name.trim()
+      : typeof meta.username === "string"
+        ? meta.username.trim()
+        : "";
+  const gender = typeof meta.gender === "string" ? meta.gender.toLowerCase() : "unknown";
   const name = username || identity || "guest";
   const isLocal = Boolean(participant.isLocal ?? participant === room?.localParticipant);
   return {
@@ -95,7 +102,12 @@ function getParticipantDisplayName(participant) {
   if (stored?.name) return stored.name;
   const meta = parseParticipantMetadata(participant?.metadata);
   const identity = typeof participant?.identity === "string" ? participant.identity.trim() : "";
-  const username = typeof meta.username === "string" ? meta.username.trim() : "";
+  const username =
+    typeof meta.display_name === "string" && meta.display_name.trim()
+      ? meta.display_name.trim()
+      : typeof meta.username === "string"
+        ? meta.username.trim()
+        : "";
   return username || identity || "viewer";
 }
 

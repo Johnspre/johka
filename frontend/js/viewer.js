@@ -876,17 +876,50 @@ function loadEmbeddedCreatorPage() {
 // === Gebruikerslijst via LiveKit (voor Users-tab) ===
 const rosterByKey = new Map();
 
-function trackParticipant(p) {
-  // identiteit ophalen
-  let rawId = p.identity || p.name || p.sid || "onbekend";
+function getParticipantKey(participant) {
+  if (!participant) return null;
+  if (participant.sid) return participant.sid;
+  if (participant.identity) return `id:${participant.identity}`;
+  if (!participant.__viewerRosterKey) {
+    participant.__viewerRosterKey = `tmp-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return participant.__viewerRosterKey;
+}
+  function trackParticipant(participant) {
+  const key = getParticipantKey(participant);
+  if (!participant || !key) return;
 
-  // ✂️ alles na een # of _ verwijderen
-  rawId = rawId.split("#")[0].split("_")[0];
+  let meta = {};
+  try {
+    meta = JSON.parse(participant.metadata || "{}");
+  } catch (err) {
+    console.warn("Kon participant metadata niet parsen:", err);
+  }
 
-  // optioneel trimmen voor zekerheid
-  const cleanName = rawId.trim();
+  const gender =
+    typeof meta.gender === "string" && meta.gender.trim()
+      ? meta.gender.toLowerCase()
+      : "unknown";
+  const displayName =
+    typeof meta.display_name === "string" && meta.display_name.trim()
+      ? meta.display_name.trim()
+      : typeof meta.username === "string" && meta.username.trim()
+        ? meta.username.trim()
+        : typeof participant.identity === "string" && participant.identity.trim()
+          ? participant.identity.split("#")[0].split("_")[0].trim()
+          : typeof participant.name === "string"
+            ? participant.name.trim()
+            : "viewer";
 
-  rosterByKey.set(cleanName, { name: cleanName });
+  const entry = {
+    key,
+    name: displayName || "viewer",
+    gender,
+    isAnonymous: Boolean(meta.isAnonymous),
+    isLocal: Boolean(participant.isLocal ?? participant === window.lkRoom?.localParticipant),
+  };
+  rosterByKey.set(key, entry);
+  return entry;
 }
 
 
@@ -894,9 +927,31 @@ function updateViewerList() {
   const list = document.getElementById("userList");
   if (!list) return;
   list.innerHTML = "";
-  rosterByKey.forEach(u => {
+  
+  const entries = Array.from(rosterByKey.values());
+  entries.sort((a, b) => {
+    if (a.isLocal !== b.isLocal) return a.isLocal ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "accent", numeric: true });
+  });
+
+  entries.forEach((entry) => {
+    let icon = "/img/anon.png";
+    if (entry.isAnonymous) {
+      icon = "/img/anon.png";
+    } else if (entry.gender === "female") {
+      icon = "/img/female.png";
+    } else if (entry.gender === "male") {
+      icon = "/img/male.png";
+    } else if (entry.gender === "trans") {
+      icon = "/img/trans.png";
+    }
+
+    const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
     const li = document.createElement("li");
-    li.textContent = (u.name || "").split("#")[0]; // verwijdert alles na het #
+    li.innerHTML = `
+      <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
+      <span class="username">${label}</span>
+    `;
     list.appendChild(li);
   });
 }
@@ -904,9 +959,24 @@ function updateViewerList() {
 function syncRosterFromRoom() {
   rosterByKey.clear();
   const r = window.lkRoom;
-  if (!r) return;
+  if (!r) {
+    updateViewerList();
+    return;
+  }
   if (r.localParticipant) trackParticipant(r.localParticipant);
-  r.remoteParticipants?.forEach(p => trackParticipant(p));
+  const remoteMap =
+    r.remoteParticipants instanceof Map
+      ? r.remoteParticipants
+      : r.participants instanceof Map
+        ? r.participants
+        : null;
+
+  if (remoteMap) {
+    remoteMap.forEach((participant) => trackParticipant(participant));
+  } else if (Array.isArray(r.participants)) {
+    r.participants.forEach((participant) => trackParticipant(participant));
+  }
+
   updateViewerList();
 }
 
@@ -914,6 +984,7 @@ function syncRosterFromRoom() {
 if (window.lkRoom) {
   window.lkRoom.on(RoomEvent.ParticipantConnected, syncRosterFromRoom);
   window.lkRoom.on(RoomEvent.ParticipantDisconnected, syncRosterFromRoom);
+  window.lkRoom.on(RoomEvent.ParticipantMetadataChanged, syncRosterFromRoom);
   syncRosterFromRoom();
 } else {
   const wait = setInterval(() => {
@@ -922,6 +993,7 @@ if (window.lkRoom) {
       syncRosterFromRoom();
       window.lkRoom.on(RoomEvent.ParticipantConnected, syncRosterFromRoom);
       window.lkRoom.on(RoomEvent.ParticipantDisconnected, syncRosterFromRoom);
+      window.lkRoom.on(RoomEvent.ParticipantMetadataChanged, syncRosterFromRoom);
     }
   }, 500);
 }

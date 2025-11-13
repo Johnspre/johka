@@ -313,7 +313,13 @@ async def create_livekit_token(
 
     metadata = None
     if user:
-        metadata = json.dumps({"display_name": user.username})
+        metadata = json.dumps(
+            {
+                "display_name": user.username,
+                "username": user.username,
+                "gender": (user.gender or "unknown") if hasattr(user, "gender") else "unknown",
+            }
+        )
 
     if room_id:
         try:
