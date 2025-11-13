@@ -938,7 +938,7 @@ function updateViewerList() {
     anonymous: "/img/anon.png",
     female: "/img/female-icon.png",
     male: "/img/male-icon.png",
-    trans: "/img/trans-icon.png",
+    trans: "/img/trans.png",
     default: "/img/anon.png",
   };
 
@@ -1004,6 +1004,14 @@ if (window.lkRoom) {
     }
   }, 500);
 }
+// laat andere scripts de roster manueel verversen
+window.refreshViewerRoster = function refreshViewerRoster() {
+  try {
+    syncRosterFromRoom();
+  } catch (err) {
+    console.warn("Kon viewer roster niet verversen", err);
+  }
+};
 
 
 // aanroepen zodra de pagina klaar is

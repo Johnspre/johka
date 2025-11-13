@@ -145,6 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   tabs.forEach(tab => {
     tab.addEventListener("click", () => {
+      const targetName = tab.dataset.tab;
       // Verwijder active van alle tabs
       tabs.forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
@@ -156,86 +157,20 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       // Toon de juiste tab-content
-      const target = document.getElementById(tab.dataset.tab + "Tab");
+      const target = document.getElementById(targetName + "Tab");
       if (target) {
         target.classList.add("active");
         target.style.display = "block";
+      }
+
+      if (targetName === "users" && typeof window.refreshViewerRoster === "function") {
+        window.refreshViewerRoster();
       }
     });
   });
 });
 </script>
 
-<script>
-  // ---- eenvoudige roster buffer ----
-  const rosterByKey = new Map();
-
-  function trackParticipant(p) {
-    rosterByKey.set(p.identity || p.sid, {
-      username: p.identity || "Anonymous",
-    });
-  }
-
-  function updateViewerList() {
-    const userList = document.getElementById("userList");
-    if (!userList) return;
-    userList.innerHTML = "";
-    rosterByKey.forEach((entry) => {
-      const li = document.createElement("li");
-      li.textContent = entry.username;
-      userList.appendChild(li);
-    });
-    const anon = document.getElementById("anonCount");
-    if (anon) anon.textContent = "+0 anonymous users";
-  }
-
-  function syncRosterFromRoom() {
-    const room = window.lkRoom;
-    if (!room) return; // nog niet klaar
-    rosterByKey.clear();
-
-    if (room.localParticipant) trackParticipant(room.localParticipant);
-    if (room.remoteParticipants instanceof Map) {
-      room.remoteParticipants.forEach((p) => trackParticipant(p));
-    }
-    updateViewerList();
-  }
-
-  // ---- wacht tot lkRoom bestaat, dan initialiseren ----
-  (function waitForRoom() {
-    if (window.lkRoom) {
-      // init eerste keer
-      syncRosterFromRoom();
-      // fallback: periodiek verversen
-      setInterval(syncRosterFromRoom, 5000);
-    } else {
-      setTimeout(waitForRoom, 400);
-    }
-  })();
-
-  // ---- tabs zichtbaar maken + users-tab triggeren ----
-  (function initTabs() {
-    const tabButtons = document.querySelectorAll(".tab-bar .tab");
-    const tabPanels = document.querySelectorAll(".tab-content");
-
-    tabButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        tabButtons.forEach((b) => b.classList.remove("active"));
-        tabPanels.forEach((panel) => panel.classList.remove("active"));
-
-        btn.classList.add("active");
-        const targetId = `${btn.dataset.tab}Tab`;
-        const panel = document.getElementById(targetId);
-        if (panel) {
-          panel.classList.add("active");
-          if (targetId === "usersTab") {
-            syncRosterFromRoom();
-          }
-        }
-      });
-    });
-  })();
-</script>
 
 
 

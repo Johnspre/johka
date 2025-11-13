@@ -130,7 +130,7 @@ function updateViewerList() {
       anonymous: "/img/anon.png",
       female: "/img/female-icon.png",
       male: "/img/male-icon.png",
-      trans: "/img/trans-icon.png",
+      trans: "/img/trans.png",
       default: "/img/anon.png",
     };
 
