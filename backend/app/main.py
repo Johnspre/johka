@@ -1143,6 +1143,30 @@ async def reset_password(req: dict, s: Session = Depends(db)):
     return {"detail": "Wachtwoord succesvol gewijzigd"}
 
 
+# ==========================================
+# 👤 UPDATE GENDER
+# ==========================================
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from database import get_db
+from models import UserDB
+from auth import get_current_user   # gebruik je bestaande login-auth
+
+class GenderIn(BaseModel):
+    gender: str
+
+@app.post("/api/user/update-gender")
+def update_gender(data: GenderIn, user: UserDB = Depends(get_current_user), s: Session = Depends(get_db)):
+    """Past het gender aan van de ingelogde gebruiker."""
+    allowed = {"anon", "male", "female", "trans"}
+    if data.gender not in allowed:
+        raise HTTPException(status_code=400, detail="Ongeldige waarde voor gender")
+
+    user.gender = data.gender
+    s.add(user)
+    s.commit()
+    return {"status": "ok", "gender": user.gender}
 
 
 # =============================================

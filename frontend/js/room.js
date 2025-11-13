@@ -116,27 +116,41 @@ function updateViewerList() {
   if (userList) {
     userList.innerHTML = "";
     entries.forEach((entry) => {
-      const icon = entry.isAnonymous
-        ? "/img/anon-icon.png"
-        : entry.gender === "female"
-          ? "/img/female-icon.png"
-          : "/img/male-icon.png";
-      const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <img src="${icon}" width="22" height="22" style="margin-right:6px;">
-        <span class="username">${label}</span>
-      `;
-      userList.appendChild(li);
-    });
-  }
+    // Kies juiste icoon afhankelijk van gender of anonimiteit
+    let icon = "/img/anon.png";
 
-  const anon = el("anonCount");
-  if (anon) {
-    const anonCount = entries.filter((entry) => entry.isAnonymous && !entry.isLocal).length;
-    anon.textContent = `+${anonCount} anonymous users`;
-  }
+    if (entry.isAnonymous) {
+      icon = "/img/anon.png";
+    } else if (entry.gender === "female") {
+      icon = "/img/female.png";
+    } else if (entry.gender === "male") {
+      icon = "/img/male.png";
+    } else if (entry.gender === "trans") {
+      icon = "/img/trans.png";
+    }
+
+    // Tekstlabel (voeg “(jij)” toe bij lokale gebruiker)
+    const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
+
+    // Bouw list-item
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
+      <span class="username">${label}</span>
+    `;
+    userList.appendChild(li);
+  });
 }
+
+// 👥 Tellen van anonieme kijkers
+const anon = el("anonCount");
+if (anon) {
+  const anonCount = entries.filter(
+    (entry) => entry.isAnonymous && !entry.isLocal
+  ).length;
+  anon.textContent = `+${anonCount} anonymous users`;
+}
+
 
 function syncRosterFromRoom() {
   rosterByKey.clear();

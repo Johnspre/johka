@@ -9,6 +9,7 @@ subjects.  Keeping the code together makes it easier to maintain and keeps
 from __future__ import annotations
 
 import base64
+import json
 import os
 import time
 from io import BytesIO
@@ -310,8 +311,9 @@ async def create_livekit_token(
             identity = f"gast-{uuid4().hex[:6]}"
             can_chat = False
 
-    if user and not is_owner:
-        identity = f"{identity}#{uuid4().hex[:6]}"
+    metadata = None
+    if user:
+        metadata = json.dumps({"display_name": user.username})
 
     if room_id:
         try:
@@ -349,6 +351,10 @@ async def create_livekit_token(
         "exp": exp,
         "video": grants,
     }
+
+    if metadata is not None:
+        payload["metadata"] = metadata
+
 
     token = jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
     print(

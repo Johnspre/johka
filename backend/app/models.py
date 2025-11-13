@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Str
 from sqlalchemy.orm import relationship
 
 from database import Base
-
+from sqlalchemy import Column, String
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -20,6 +20,7 @@ class UserDB(Base):
     bio = Column(Text, nullable=True, default="")
     room = relationship("RoomDB", back_populates="owner", uselist=False)
     wallet = relationship("Wallet", back_populates="owner", uselist=False)
+    gender = Column(String(10), nullable=False, server_default='anon')
 
 
 class RoomDB(Base):

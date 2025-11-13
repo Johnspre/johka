@@ -37,6 +37,32 @@
                padding:8px 12px;font-weight:600;cursor:pointer;">
   🔓 Terug naar publieke room
 </button>
+<label>Geslacht:</label>
+<select id="genderSelect">
+  <option value="anon">Niet opgegeven</option>
+  <option value="male">Man</option>
+  <option value="female">Vrouw</option>
+  <option value="trans">Transgender</option>
+</select>
+<button onclick="updateGender()">Opslaan</button>
+
+<script>
+async function updateGender(){
+  const gender = document.getElementById("genderSelect").value;
+  const token = localStorage.getItem("token");
+  const res = await fetch("https://api.johka.be/api/user/update-gender", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ gender })
+  });
+  const data = await res.json();
+  if (res.ok) alert("✅ Geslacht aangepast naar " + data.gender);
+  else alert("❌ Fout: " + data.detail);
+}
+</script>
 
 <script>
 (() => {
