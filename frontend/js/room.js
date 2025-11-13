@@ -126,24 +126,26 @@ function updateViewerList() {
 
   const userList = el("userList");
   if (userList) {
+    const ICON_MAP = {
+      anonymous: "/img/anon.png",
+      female: "/img/female-icon.png",
+      male: "/img/male-icon.png",
+      trans: "/img/trans-icon.png",
+      default: "/img/anon.png",
+    };
+
+    const getIcon = (entry) => {
+      if (entry.isAnonymous) return ICON_MAP.anonymous;
+      if (entry.gender === "female") return ICON_MAP.female;
+      if (entry.gender === "male") return ICON_MAP.male;
+      if (entry.gender === "trans") return ICON_MAP.trans;
+      return ICON_MAP.default;
+    };
+
     userList.innerHTML = "";
     entries.forEach((entry) => {
-       // Kies juiste icoon afhankelijk van gender of anonimiteit
-      let icon = "/img/anon.png";
-
-      if (entry.isAnonymous) {
-        icon = "/img/anon.png";
-      } else if (entry.gender === "female") {
-        icon = "/img/female.png";
-      } else if (entry.gender === "male") {
-        icon = "/img/male.png";
-      } else if (entry.gender === "trans") {
-        icon = "/img/trans.png";
-      }
-
-      // Tekstlabel (voeg “(jij)” toe bij lokale gebruiker)
+      const icon = getIcon(entry);
       const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
-      // Bouw list-item
       const li = document.createElement("li");
       li.innerHTML = `
         <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
