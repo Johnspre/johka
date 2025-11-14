@@ -86,11 +86,26 @@ class PrivateMessage(Base):
     receiver = relationship("UserDB", foreign_keys=[receiver_id])
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
 
 class KickRequest(BaseModel):
     room: str
-    identity: str = Field(alias="username")
+    identity: str | None = Field(default=None, alias="username")
+    username: str | None = None
+
+    @root_validator(pre=True)
+    def _ensure_identity(cls, values):
+        """Zorg dat we zowel `identity` als `username` ondersteunen."""
+        if not isinstance(values, dict):
+            return values
+
+        identity = values.get("identity") or values.get("username")
+        if not identity:
+            raise ValueError("identity of username is verplicht")
+
+        values.setdefault("identity", identity)
+        values.setdefault("username", identity)
+        return values
 
     class Config:
         allow_population_by_field_name = True
