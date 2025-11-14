@@ -57,7 +57,22 @@ PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
 LIVEKIT_API_KEY = _get_env("LIVEKIT_API_KEY", "johka_live_key")
 LIVEKIT_API_SECRET = _get_env("LIVEKIT_API_SECRET", required=True)
 LIVEKIT_URL = _get_env("LIVEKIT_URL", "wss://live.johka.be")
-LIVEKIT_FALLBACK_URL = os.getenv("LIVEKIT_FALLBACK_URL", "https://live.johka.be")
+
+def _resolve_livekit_http_base() -> str:
+    """Bepaal de HTTP-basis-URL voor LiveKit-beheer."""
+
+    fallback = os.getenv("LIVEKIT_FALLBACK_URL")
+    if fallback:
+        return fallback.rstrip("/")
+
+    if LIVEKIT_URL.startswith("wss://"):
+        return "https://" + LIVEKIT_URL[len("wss://") :].rstrip("/")
+    if LIVEKIT_URL.startswith("ws://"):
+        return "http://" + LIVEKIT_URL[len("ws://") :].rstrip("/")
+    return LIVEKIT_URL.rstrip("/")
+
+
+LIVEKIT_HTTP_BASE = _resolve_livekit_http_base()
 
 UPLOAD_ROOT = "/app/static/uploads"
 AVATAR_DIR = os.path.join(UPLOAD_ROOT, "avatars")
@@ -859,7 +874,7 @@ import httpx
 async def kick_user(payload: KickRequest, user: UserDB = Depends(get_current_user)):
     token = build_livekit_server_token()
 
-    url = LIVEKIT_FALLBACK_URL + "/twirp/livekit.RoomService/RemoveParticipant"
+    url = LIVEKIT_HTTP_BASE + "/twirp/livekit.RoomService/RemoveParticipant"
 
     body = {
         "room": payload.room,
