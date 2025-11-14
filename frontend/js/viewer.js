@@ -12,7 +12,19 @@ const API = "https://api.johka.be/api";
 const params = new URLSearchParams(window.location.search);
 const requestedRoom = params.get("room");
 const requestedUsername = params.get("u");
-window.streamerName = requestedUsername || null;
+
+
+function setStreamerName(name) {
+  if (!name) return;
+  const normalized = String(name).trim();
+  if (!normalized) return;
+  window.streamerName = normalized;
+  window.streamerNameLower = normalized.toLowerCase();
+}
+
+window.streamerName = null;
+window.streamerNameLower = null;
+setStreamerName(requestedUsername);
 
 
 const overlay = document.getElementById("playerOverlay");
@@ -277,7 +289,17 @@ async function loadRoomInfo() {
     const info = await res.json();
     normalizedSlug = info.slug;
     activeSlug = info.live_slug;
-    creatorNameEl.textContent = requestedUsername || info.owner;
+    const creatorDisplayName = requestedUsername || info.owner;
+    creatorNameEl.textContent = creatorDisplayName;
+    const previousStreamer = window.streamerNameLower;
+    setStreamerName(window.streamerName || creatorDisplayName);
+    if (
+      window.streamerNameLower &&
+      window.streamerNameLower !== previousStreamer &&
+      typeof refreshPMInbox === "function"
+    ) {
+      refreshPMInbox();
+    }
     if (info.is_live) {
       setStatus({ live: true, text: `Live — ${info.viewers || 0} kijkers` });
       viewerCountEl.textContent = `👁 ${info.viewers || 0} kijkers`;
@@ -1019,9 +1041,6 @@ window.refreshViewerRoster = function refreshViewerRoster() {
 // 📨 PM Logica voor viewer DM berichten
 // =====================================================
 
-// streamer naam instellen in jouw bestaande creatorInfo-code:
-window.streamerName = null;
-
 // PM UI elementen
 const pmTabBtn = document.querySelector("[data-tab='pm']");
 const pmInbox = document.getElementById("pmInbox");
@@ -1031,6 +1050,22 @@ const pmSendBtn = document.getElementById("pmSendBtn");
 
 // Standaard LOCKED (CB-gedrag)
 let pmUnlocked = false;
+
+function updatePMLockUI() {
+  if (pmUnlocked) {
+    pmLockedBox.style.display = "none";
+    pmInput.disabled = false;
+    pmSendBtn.disabled = false;
+    pmInput.placeholder = "Typ een privébericht…";
+  } else {
+    pmLockedBox.style.display = "block";
+    pmInput.disabled = true;
+    pmSendBtn.disabled = true;
+    pmInput.placeholder = "Privéberichten geblokkeerd";
+  }
+}
+
+updatePMLockUI();
 
 // Bericht toevoegen
 function addPMMessage(from, msg) {
@@ -1050,21 +1085,24 @@ function refreshPMInbox() {
     .then(list => {
         pmInbox.innerHTML = "";
 
-        list.forEach(m => addPMMessage(m.from, m.message));
+        list.reverse().forEach(m => addPMMessage(m.from, m.message));
 
-        // Unlock als streamer eerst PM stuurde
-        pmUnlocked = list.some(m => m.from === window.streamerName);
+        const targetName =
+          window.streamerNameLower ||
+          (window.streamerName ? window.streamerName.toLowerCase() : null);
 
-        if (pmUnlocked) {
-            pmLockedBox.style.display = "none";
-            pmInput.disabled = false;
-            pmSendBtn.disabled = false;
-            pmInput.placeholder = "Typ een privébericht…";
-        } else {
-            pmLockedBox.style.display = "block";
-            pmInput.disabled = true;
-            pmSendBtn.disabled = true;
-            pmInput.placeholder = "Privéberichten geblokkeerd";
+        const prevUnlocked = pmUnlocked;
+        pmUnlocked = Boolean(
+          targetName &&
+            list.some(
+              (m) =>
+                typeof m.from === "string" &&
+                m.from.trim().toLowerCase() === targetName,
+            ),
+        );
+
+        if (pmUnlocked !== prevUnlocked) {
+          updatePMLockUI();
         }
     });
 }
