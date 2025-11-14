@@ -92,10 +92,38 @@
     <button id="leaveBtn" class="leave-btn">🚪 Verlaat kamer</button>
   </div>
 
-  <!-- 💌 PRIVÉ TAB -->
-  <div id="pmTab" class="tab-content">
-    <p>Privéberichten of sessies komen hier…</p>
+ <!-- 💌 PRIVÉ TAB -->
+<div id="pmTab" class="tab-content">
+
+  <!-- Inbox -->
+  <div id="pmInbox"
+       style="height:240px; overflow-y:auto; border:1px solid #ccc;
+       padding:8px; border-radius:6px; background:#fafafa; margin-bottom:10px;">
+      <p style="color:#777;">Nog geen privéberichten…</p>
   </div>
+
+  <!-- Lock message (CB style) -->
+  <div id="pmLockedBox" 
+       style="background:#fff3cd; border:1px solid #ffeeba; padding:10px;
+              border-radius:6px; color:#856404; margin-bottom:10px; display:none;">
+      Je moet een supporter zijn, een tip gegeven hebben,  
+      of eerst een privébericht van deze streamer ontvangen  
+      om een DM te kunnen sturen.
+  </div>
+
+  <!-- Verstuur-veld -->
+  <div style="display:flex; gap:6px;">
+    <input id="pmInput" type="text" placeholder="Typ een privébericht…" 
+           style="flex:1; padding:8px; border:1px solid #ccc; border-radius:6px;">
+    <button id="pmSendBtn"
+            style="padding:8px 12px; border:none; border-radius:6px;
+                   background:#ff6600; color:white; font-weight:600; cursor:pointer;">
+      Verstuur
+    </button>
+  </div>
+
+</div>
+
 
   <!-- 👥 USERS TAB -->
   <div id="usersTab" class="tab-content">

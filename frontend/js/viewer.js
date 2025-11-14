@@ -12,6 +12,8 @@ const API = "https://api.johka.be/api";
 const params = new URLSearchParams(window.location.search);
 const requestedRoom = params.get("room");
 const requestedUsername = params.get("u");
+window.streamerName = requestedUsername || null;
+
 
 const overlay = document.getElementById("playerOverlay");
 const statusBadge = document.getElementById("statusBadge");
@@ -1013,6 +1015,85 @@ window.refreshViewerRoster = function refreshViewerRoster() {
   }
 };
 
+// =====================================================
+// 📨 PM Logica voor viewer DM berichten
+// =====================================================
+
+// streamer naam instellen in jouw bestaande creatorInfo-code:
+window.streamerName = null;
+
+// PM UI elementen
+const pmTabBtn = document.querySelector("[data-tab='pm']");
+const pmInbox = document.getElementById("pmInbox");
+const pmLockedBox = document.getElementById("pmLockedBox");
+const pmInput = document.getElementById("pmInput");
+const pmSendBtn = document.getElementById("pmSendBtn");
+
+// Standaard LOCKED (CB-gedrag)
+let pmUnlocked = false;
+
+// Bericht toevoegen
+function addPMMessage(from, msg) {
+    const div = document.createElement("div");
+    div.style.margin = "5px 0";
+    div.innerHTML = `<b>${from}:</b> ${msg}`;
+    pmInbox.appendChild(div);
+    pmInbox.scrollTop = pmInbox.scrollHeight;
+}
+
+// Inbox + unlock check
+function refreshPMInbox() {
+    fetch("https://api.johka.be/api/dm/inbox", {
+        headers: { "Authorization": "Bearer " + localStorage.getItem("token") }
+    })
+    .then(r => r.json())
+    .then(list => {
+        pmInbox.innerHTML = "";
+
+        list.forEach(m => addPMMessage(m.from, m.message));
+
+        // Unlock als streamer eerst PM stuurde
+        pmUnlocked = list.some(m => m.from === window.streamerName);
+
+        if (pmUnlocked) {
+            pmLockedBox.style.display = "none";
+            pmInput.disabled = false;
+            pmSendBtn.disabled = false;
+            pmInput.placeholder = "Typ een privébericht…";
+        } else {
+            pmLockedBox.style.display = "block";
+            pmInput.disabled = true;
+            pmSendBtn.disabled = true;
+            pmInput.placeholder = "Privéberichten geblokkeerd";
+        }
+    });
+}
+
+// Iedere 5 sec inbox verversen
+setInterval(refreshPMInbox, 5000);
+
+
+// PM versturen
+pmSendBtn.addEventListener("click", () => {
+    const text = pmInput.value.trim();
+    if (!text || !pmUnlocked) return;
+
+    fetch("https://api.johka.be/api/dm/send", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token"),
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            to_username: window.streamerName,
+            message: text
+        })
+    })
+    .then(() => {
+        addPMMessage("jij", text);
+        pmInput.value = "";
+    });
+});
 
 // aanroepen zodra de pagina klaar is
 window.addEventListener("DOMContentLoaded", loadEmbeddedCreatorPage);
