@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import RoomDB, UserDB, Wallet, WalletHistory
+from models import KickRequest
 
 
 load_dotenv()
@@ -56,6 +57,7 @@ PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
 LIVEKIT_API_KEY = _get_env("LIVEKIT_API_KEY", "johka_live_key")
 LIVEKIT_API_SECRET = _get_env("LIVEKIT_API_SECRET", required=True)
 LIVEKIT_URL = _get_env("LIVEKIT_URL", "wss://live.johka.be")
+LIVEKIT_FALLBACK_URL = os.getenv("LIVEKIT_FALLBACK_URL", "https://live.johka.be")
 
 UPLOAD_ROOT = "/app/static/uploads"
 AVATAR_DIR = os.path.join(UPLOAD_ROOT, "avatars")
@@ -838,6 +840,48 @@ def update_room_access(
 
 router.include_router(room_router)
 router.include_router(_public_router)
+
+import time, jwt
+
+def build_livekit_server_token():
+    now = int(time.time())
+    payload = {
+        "iss": LIVEKIT_API_KEY,
+        "nbf": now - 10,
+        "exp": now + 30,
+        "metadata": "server"
+    }
+    return jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
+
+import httpx
+
+@router.post("/mod/kick")
+async def kick_user(payload: KickRequest, user: UserDB = Depends(get_current_user)):
+    token = build_livekit_server_token()
+
+    url = LIVEKIT_FALLBACK_URL + "/twirp/livekit.RoomService/RemoveParticipant"
+
+    body = {
+        "room": payload.room,
+        "identity": payload.username
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            json=body
+        )
+
+    if res.status_code != 200:
+        return {"error": res.text}
+
+    return {"status": "ok"}
+
+
 
 
 __all__ = ["router"]

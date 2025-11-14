@@ -46,6 +46,24 @@ const donateInput = document.getElementById("donateInput");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+function getViewerRole(entry) {
+  const myName = localStorage.getItem("username");
+
+  return {
+    isSelf: entry.name === myName,
+
+    // Als metadata vertelt dat de user moderator is:
+    isModerator: window.TEST_FORCE_MODERATOR ? true : (entry.isModerator || false),
+
+    isStreamer: false
+  };
+}
+
+
+// TESTMODE: MAAK JEZELF MODERATOR IN DE VIEWER
+window.TEST_FORCE_MODERATOR = true;
+
+
 let normalizedSlug = null;
 let activeSlug = null;
 let lkRoom = null;
@@ -916,6 +934,8 @@ function getParticipantKey(participant) {
   let meta = {};
   try {
     meta = JSON.parse(participant.metadata || "{}");
+    const isModerator = Boolean(meta.is_mod);
+
   } catch (err) {
     console.warn("Kon participant metadata niet parsen:", err);
   }
@@ -941,6 +961,7 @@ function getParticipantKey(participant) {
     gender,
     isAnonymous: Boolean(meta.isAnonymous),
     isLocal: Boolean(participant.isLocal ?? participant === window.lkRoom?.localParticipant),
+    isModerator: Boolean(meta.is_mod)
   };
   rosterByKey.set(key, entry);
   return entry;
@@ -980,9 +1001,29 @@ function updateViewerList() {
     const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
     const li = document.createElement("li");
     li.innerHTML = `
-      <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
-      <span class="username">${label}</span>
-    `;
+  <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
+  <span class="username" data-name="${label}">${label}</span>
+`;
+  
+const nameSpan = li.querySelector(".username");
+nameSpan.addEventListener("click", (event) => {
+  const rawName = event.target.dataset.name || "";
+  const cleanName = rawName.replace(" (jij)", "");
+
+  const key = [...rosterByKey.values()].find(e => e.name === cleanName)?.key;
+  const entry = rosterByKey.get(key);
+
+  const role = entry ? getViewerRole(entry) : {};
+
+  openViewerUserPopup(
+    cleanName,
+    event.clientX + 8,
+    event.clientY + 8,
+    role
+  );
+});
+
+
     list.appendChild(li);
   });
 }
@@ -1135,3 +1176,113 @@ pmSendBtn.addEventListener("click", () => {
 
 // aanroepen zodra de pagina klaar is
 window.addEventListener("DOMContentLoaded", loadEmbeddedCreatorPage);
+
+// =========================================
+// 👤 SIMPLE USER POPUP (alleen viewer-side)
+// =========================================
+const viewerUserPopupEl = document.getElementById("userPopup");
+
+function closeViewerUserPopup() {
+  if (!viewerUserPopupEl) return;
+  viewerUserPopupEl.classList.add("hidden");
+}
+
+function openViewerUserPopup(username, x, y, role = {}) {
+  const { isSelf = false, isModerator = false } = role;
+
+  let html = `
+    <div class="user-popup-header">${username}</div>
+
+    <div class="user-popup-section">
+      <button data-act="pm">💌 Send private message</button>
+      <button data-act="dm">💬 Direct message</button>
+      <button data-act="mention">@ Mention</button>
+      <button data-act="ignore">🚫 Ignore</button>
+    </div>
+  `;
+
+  // Extra moderator-functies
+  if (isModerator && !isSelf) {
+    html += `
+      <div class="user-popup-section">
+        <b>Moderator tools</b><br><br>
+        <button data-act="kick">👢 Kick user</button>
+        <button data-act="timeout5">⏱ Timeout 5m</button>
+        <button data-act="timeout60">⏱ Timeout 1h</button>
+        <button data-act="timeout24">⏱ Timeout 24h</button>
+      </div>
+    `;
+  }
+
+  viewerUserPopupEl.innerHTML = html;
+  viewerUserPopupEl.style.left = x + "px";
+  viewerUserPopupEl.style.top = y + "px";
+  viewerUserPopupEl.classList.remove("hidden");
+
+  viewerUserPopupEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const act = btn.dataset.act;
+      handleViewerPopupAction(act, username);
+    });
+  });
+}
+
+
+// Acties voorlopig alleen als demo (alerts)
+// Later koppelen we dit aan je echte PM/DM systemen
+function handleViewerPopupAction(action, username) {
+  switch (action) {
+    case "pm":
+      alert("PM naar: " + username + " (later echte functie)");
+      break;
+    case "dm":
+      alert("DM naar: " + username + " (later echte functie)");
+      break;
+    case "mention": {
+      const input = document.getElementById("chatInput");
+      if (input) {
+        input.value = "@" + username + " ";
+        input.focus();
+      }
+      break;
+    }
+    case "ignore":
+      alert("Gebruiker genegeerd (UI): " + username);
+      break;
+
+        case "kick":
+      alert("Moderator: Kick user → backend later");
+      break;
+
+    case "timeout5":
+      alert("Moderator timeout 5 min → backend later");
+      break;
+
+    case "timeout60":
+      alert("Moderator timeout 1 uur → backend later");
+      break;
+
+    case "timeout24":
+      alert("Moderator timeout 24 uur → backend later");
+      break;
+
+  }
+     
+  closeViewerUserPopup();
+}
+
+// Klik buiten popup = sluiten
+document.addEventListener("click", (event) => {
+  if (!viewerUserPopupEl) return;
+  const isUsername = event.target.classList?.contains("username");
+  if (!isUsername && !viewerUserPopupEl.contains(event.target)) {
+    closeViewerUserPopup();
+  }
+});
+
+// Escape = sluiten
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeViewerUserPopup();
+  }
+});

@@ -84,3 +84,10 @@ class PrivateMessage(Base):
 
     sender = relationship("UserDB", foreign_keys=[sender_id])
     receiver = relationship("UserDB", foreign_keys=[receiver_id])
+
+
+from pydantic import BaseModel
+
+class KickRequest(BaseModel):
+    room: str
+    username: str

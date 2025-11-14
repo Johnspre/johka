@@ -39,6 +39,17 @@ let currentRoomSubject = defaultRoomSubject;
 window.roomDefaultSubject = defaultRoomSubject;
 window.roomCurrentSubject = currentRoomSubject;
 
+function getRoomUserRole(entry) {
+  const myName = localStorage.getItem("username");
+
+  return {
+    isSelf: entry.name === myName,
+    isStreamer: true,            // jij bent de streamer in room.html
+    isModerator: entry.isModerator || false  // later metadata
+  };
+}
+
+
 function getParticipantKey(participant) {
   if (!participant) return null;
   if (participant.sid) return participant.sid;
@@ -77,9 +88,12 @@ function buildRosterEntry(participant) {
   return {
     key: getParticipantKey(participant),
     name,
+    identity,                          // 🟢 DIT TOEVOEGEN
     isAnonymous: Boolean(meta.isAnonymous),
     gender,
     isLocal,
+    isModerator: Boolean(meta.is_mod)
+
   };
 }
 
@@ -148,9 +162,30 @@ function updateViewerList() {
       const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
       const li = document.createElement("li");
       li.innerHTML = `
-        <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
-        <span class="username">${label}</span>
-      `;
+  <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
+  <span class="username" data-name="${label}">${label}</span>
+`;
+
+const nameSpan = li.querySelector(".username");
+nameSpan.addEventListener("click", (event) => {
+  const raw = event.target.dataset.name;
+  const clean = raw.replace(" (jij)", "");
+
+  const key = [...rosterByKey.values()].find(e => e.name === clean)?.key;
+  const entry = rosterByKey.get(key);
+  const role = entry ? getRoomUserRole(entry) : {};
+
+openRoomUserPopup(
+  clean,
+  event.clientX + 10,
+  event.clientY + 10,
+  role,
+  entry.identity
+);
+
+
+});
+
       userList.appendChild(li);
     });
   }
@@ -1254,3 +1289,132 @@ window.Johka.updateViewerList = function () {
   }
 };
 
+// =====================================================
+// 👤 ROOM POPUP (BASIS) — alleen tonen
+// =====================================================
+const roomUserPopupEl = document.getElementById("roomUserPopup");
+
+function closeRoomUserPopup() {
+  roomUserPopupEl.classList.add("hidden");
+}
+
+function openRoomUserPopup(username, x, y, role = {}, identity) {
+  window.__popupIdentity = identity;   // opslaan voor kick
+
+  const { isSelf = false, isStreamer = true, isModerator = false } = role;
+
+  let html = `
+    <div class="user-popup-header">${username}</div>
+
+    <div class="user-popup-section">
+      <button data-act="pm">💌 Private Message</button>
+      <button data-act="mention">@ Mention</button>
+      <button data-act="ignore">🚫 Ignore</button>
+    </div>
+  `;
+
+  if (isStreamer && !isSelf) {
+    html += `
+      <div class="user-popup-section"><b>Streamer Tools</b></div>
+      <button data-act="kick">👢 Kick user</button>
+      <button data-act="ban">⛔ Ban user</button>
+      <button data-act="timeout5">⏱ Timeout 5m</button>
+      <button data-act="timeout60">⏱ Timeout 1 uur</button>
+      <button data-act="timeout24">⏱ Timeout 24 uur</button>
+      <button data-act="mod">⭐ Make Moderator</button>
+      <button data-act="unmod">❌ Remove Moderator</button>
+    `;
+  }
+
+  html += `
+    <div class="user-popup-section"><b>Notes</b></div>
+    <textarea placeholder="Notities over ${username}..."></textarea>
+  `;
+
+  roomUserPopupEl.innerHTML = html;
+  roomUserPopupEl.style.left = x + "px";
+  roomUserPopupEl.style.top = y + "px";
+  roomUserPopupEl.classList.remove("hidden");
+
+  roomUserPopupEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      handleRoomPopupAction(btn.dataset.act, username);
+    });
+  });
+}
+
+function handleRoomPopupAction(action, username) {
+  switch (action) {
+
+    case "pm": alert("PM → later echte functie"); break;
+    case "mention": 
+      const inp = document.getElementById("chatInput");
+      if (inp) { inp.value = "@" + username + " "; inp.focus(); }
+      break;
+    case "ignore": alert("Ignore → later opslaan in backend"); break;
+
+    case "kick":
+    callModApiKick(username);
+    break;
+
+    case "ban": alert("Ban user (backend komt later)"); break;
+    case "timeout5": alert("Timeout 5m"); break;
+    case "timeout60": alert("Timeout 1 uur"); break;
+    case "timeout24": alert("Timeout 24 uur"); break;
+
+    case "mod": alert("Make moderator"); break;
+    case "unmod": alert("Remove moderator"); break;
+  }
+
+  closeRoomUserPopup();
+}
+
+
+async function callModApiKick(username) {
+  const token = localStorage.getItem("token");
+  if (!token) return alert("Niet ingelogd.");
+
+  const identity = window.__popupIdentity;       // 🟢 echte LiveKit identity
+  const roomName = window.lkRoom?.name;
+
+  if (!identity) return alert("Geen identity gevonden (bug).");
+  if (!roomName) return alert("Geen LiveKit room name gevonden.");
+
+  try {
+    const res = await fetch("https://api.johka.be/api/room/mod/kick", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        room: roomName,
+        username: identity     // 🟢 ECHTE LiveKit identity
+      })
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t);
+    }
+
+    alert(`User gekickt: ${username} (${identity})`);
+  } catch (err) {
+    alert("Kick fout: " + err.message);
+  }
+}
+
+
+
+
+// Klik buiten popup = sluiten
+document.addEventListener("click", (event) => {
+  if (!roomUserPopupEl.contains(event.target) && !event.target.classList.contains("username")) {
+    closeRoomUserPopup();
+  }
+});
+
+// ESC sluiten
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeRoomUserPopup();
+});

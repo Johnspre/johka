@@ -1,0 +1,44 @@
+/* Kleine Chaturbate-achtige user popup */
+.user-popup {
+  position: absolute;
+  width: 260px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  padding: 8px 0;
+  z-index: 99999;
+  border: 1px solid #e3e3e3;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+}
+
+.user-popup.hidden {
+  display: none;
+}
+
+.user-popup-header {
+  font-weight: 700;
+  padding: 10px 14px;
+  font-size: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.user-popup-section {
+  padding: 8px 14px;
+  border-top: 1px solid #f4f4f4;
+}
+
+.user-popup button {
+  width: 100%;
+  padding: 7px 14px;
+  text-align: left;
+  background: none;
+  border: 0;
+  outline: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.user-popup button:hover {
+  background: #f2f2f2;
+}

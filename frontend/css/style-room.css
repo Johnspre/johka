@@ -990,3 +990,11 @@ main {
 .tabContent:not(.active) {
   display: none !important;
 }
+
+#roomUserPopup {
+  position: fixed !important;
+  z-index: 999999 !important;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+}

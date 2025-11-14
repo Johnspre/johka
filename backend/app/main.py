@@ -67,6 +67,7 @@ app.include_router(admin_router)
 from dm import router as dm_router
 app.include_router(dm_router)
 
+
 # ============================================
 # ENV & CONFIG
 # ============================================
@@ -1031,6 +1032,7 @@ def wallet_history(user: UserDB = Depends(get_current_user), s: Session = Depend
 from room import router as room_router
 
 app.include_router(room_router)
+app.include_router(room_router, prefix="/api/room")
 
 # ============================================
 # 💳 Mollie webhook – saldo bijwerken + loggen
