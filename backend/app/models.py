@@ -86,8 +86,11 @@ class PrivateMessage(Base):
     receiver = relationship("UserDB", foreign_keys=[receiver_id])
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class KickRequest(BaseModel):
     room: str
-    username: str
+    identity: str = Field(alias="username")
+
+    class Config:
+        allow_population_by_field_name = True

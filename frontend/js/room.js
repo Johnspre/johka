@@ -1389,7 +1389,7 @@ async function callModApiKick(username) {
       },
       body: JSON.stringify({
         room: roomName,
-        username: identity     // 🟢 ECHTE LiveKit identity
+        identity
       })
     });
 

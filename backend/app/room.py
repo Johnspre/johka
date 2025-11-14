@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import RoomDB, UserDB, Wallet, WalletHistory
 from models import KickRequest
-
+from livekit.api import AccessToken, VideoGrants
 
 load_dotenv()
 
@@ -856,43 +856,66 @@ def update_room_access(
 router.include_router(room_router)
 router.include_router(_public_router)
 
-import time, jwt
+def build_livekit_server_token(room_name: Optional[str] = None) -> str:
+    """Maak een kortdurende token met room_admin-rechten."""
 
-def build_livekit_server_token():
-    now = int(time.time())
-    payload = {
-        "iss": LIVEKIT_API_KEY,
-        "nbf": now - 10,
-        "exp": now + 30,
-        "metadata": "server"
-    }
-    return jwt.encode(payload, LIVEKIT_API_SECRET, algorithm="HS256")
+    grants = VideoGrants(room_admin=True, room=room_name or "")
+    token = AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
+    token.with_identity("room-moderator")
+    token.with_grants(grants)
+    return token.to_jwt()
 
 import httpx
 
 @router.post("/mod/kick")
-async def kick_user(payload: KickRequest, user: UserDB = Depends(get_current_user)):
-    token = build_livekit_server_token()
+async def kick_user(
+    payload: KickRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db),
+):
+    if not payload.room or not payload.identity:
+        raise HTTPException(status_code=400, detail="room en identity zijn verplicht")
 
+    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    if not owner_room:
+        raise HTTPException(status_code=403, detail="Geen room gevonden voor gebruiker")
+    
+    expected_room_name = f"{owner_room.slug}-room"
+    if payload.room != expected_room_name:
+        raise HTTPException(
+            status_code=403,
+            detail="Je kan enkel kijkers uit je eigen room verwijderen",
+        )
+
+    token = build_livekit_server_token(payload.room)
     url = LIVEKIT_HTTP_BASE + "/twirp/livekit.RoomService/RemoveParticipant"
-
-    body = {
-        "room": payload.room,
-        "identity": payload.username
-    }
-
-    async with httpx.AsyncClient() as client:
+    body = {"room": payload.room, "identity": payload.identity}
+    async with httpx.AsyncClient(timeout=10.0) as client:
         res = await client.post(
             url,
             headers={
                 "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            json=body
+            json=body,
+
         )
 
     if res.status_code != 200:
-        return {"error": res.text}
+        raise HTTPException(status_code=502, detail=res.text)
+
+    maybe_json = None
+    content_type = res.headers.get("content-type", "")
+    if "json" in content_type.lower() and res.content:
+        try:
+            maybe_json = res.json()
+        except ValueError:
+            maybe_json = None
+    if isinstance(maybe_json, dict) and "error" in maybe_json:
+        detail = maybe_json["error"].get("msg") if isinstance(maybe_json["error"], dict) else None
+        raise HTTPException(status_code=502, detail=detail or "LiveKit gaf een fout terug")
+
+    log_room_action(s, owner_room.id, user.id, "kick", info=payload.identity)
 
     return {"status": "ok"}
 

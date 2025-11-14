@@ -16,7 +16,7 @@ httpx
 python-dotenv
 fastapi-mail
 itsdangerous>=2.1.2
-
+livekit-api
 
 
 
