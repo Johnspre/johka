@@ -28,7 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import RoomDB, UserDB, Wallet, WalletHistory
-from models import KickRequest, BanRequest, TimeoutRequest
+from models import KickRequest, BanRequest, TimeoutRequest, ModRequest
 from livekit.api import AccessToken, VideoGrants
 from datetime import datetime, timedelta
 from models import RoomTimeout
