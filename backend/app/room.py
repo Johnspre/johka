@@ -39,6 +39,26 @@ def _get_env(name: str, default: Optional[str] = None, *, required: bool = False
         raise RuntimeError(f"Environment variable '{name}' is required")
     return value
 
+async def do_livekit_kick(room_name: str, identity: str):
+    token = build_livekit_server_token()
+
+    url = LIVEKIT_FALLBACK_URL + "/twirp/livekit.RoomService/RemoveParticipant"
+
+    body = {
+        "room": room_name,
+        "identity": identity
+    }
+
+    async with httpx.AsyncClient() as client:
+        return await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            json=body
+        )
+
 
 JWT_SECRET = _get_env("JWT_SECRET", "MyUltraSecretKey")
 JWT_ALGORITHM = "HS256"
@@ -920,6 +940,122 @@ async def kick_user(
     return {"status": "ok"}
 
 
+@router.post("/mod/ban")
+async def ban_user(
+    payload: BanRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    # 1. Check of dit wel jouw eigen room is
+    # payload.room = LiveKit room name, vb. "katty-room"
+    slug = payload.room.replace("-room", "")
 
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id, RoomDB.slug == slug)
+        .first()
+    )
+
+    if not owner_room:
+        raise HTTPException(403, "Je kan enkel kijkers bannen uit je eigen room")
+
+    # 2. Check of hij al geband is (voorkomt dubbele entries)
+    existing = (
+        s.query(RoomBan)
+        .filter(RoomBan.room_id == owner_room.id, RoomBan.identity == payload.identity)
+        .first()
+    )
+    if existing:
+        # user is al geblokkeerd
+        # maar we kunnen hem alsnog uit LiveKit kicken
+        await do_livekit_kick(payload.room, payload.identity)
+        return {"status": "ok", "message": f"{payload.identity} was al geblokkeerd"}
+
+    # 3. Opslaan in DB
+    ban = RoomBan(
+        room_id=owner_room.id,
+        identity=payload.identity,
+        username=payload.username or payload.identity
+    )
+    s.add(ban)
+    s.commit()
+
+    # 4. User uit LiveKit gooien
+    await do_livekit_kick(payload.room, payload.identity)
+
+    return {"status": "ok", "message": f"{payload.username} is geblokkeerd"}
+
+
+@router.post("/mod/timeout")
+async def timeout_user(
+    payload: TimeoutRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    slug = payload.room.replace("-room", "")
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id, RoomDB.slug == slug)
+        .first()
+    )
+
+    if not owner_room:
+        raise HTTPException(403, "Je kan enkel kijkers time-outen in je eigen room.")
+
+    # einde van timeout berekenen
+    until = datetime.utcnow() + timedelta(minutes=payload.minutes)
+
+    # bestaande timeout verwijderen (vervangen)
+    s.query(RoomTimeout).filter(
+        RoomTimeout.room_id == owner_room.id,
+        RoomTimeout.identity == payload.identity
+    ).delete()
+
+    timeout = RoomTimeout(
+        room_id=owner_room.id,
+        identity=payload.identity,
+        username=payload.username or payload.identity,
+        until=until
+    )
+
+    s.add(timeout)
+    s.commit()
+
+    # direct kicken
+    await do_livekit_kick(payload.room, payload.identity)
+
+    return {"status": "ok", "message": f"{payload.username} heeft een timeout van {payload.minutes} minuten"}
+
+@router.post("/mod/unban")
+async def unban_user(
+    payload: BanRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    slug = payload.room.replace("-room", "")
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id, RoomDB.slug == slug)
+        .first()
+    )
+
+    if not owner_room:
+        raise HTTPException(403, "Geen rechten op deze room")
+
+    # remove ban
+    s.query(RoomBan).filter(
+        RoomBan.room_id == owner_room.id,
+        RoomBan.identity == payload.identity
+    ).delete()
+
+    # remove timeout
+    s.query(RoomTimeout).filter(
+        RoomTimeout.room_id == owner_room.id,
+        RoomTimeout.identity == payload.identity
+    ).delete()
+
+    s.commit()
+
+    return {"status": "ok", "message": f"{payload.username} is geunbanned"}
 
 __all__ = ["router"]

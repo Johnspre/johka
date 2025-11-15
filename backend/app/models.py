@@ -39,6 +39,36 @@ class RoomDB(Base):
     access_key = Column(Text, nullable=True)
     token_price = Column(Integer, nullable=False, server_default="0")
 
+class RoomBan(Base):
+    __tablename__ = "room_bans"
+
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False)
+    identity = Column(String(255), nullable=False)    # LiveKit identity
+    username = Column(String(255), nullable=False)    # display name
+    banned_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "identity", name="uq_roomban_room_identity"),
+    )
+
+    room = relationship("RoomDB", backref="bans")
+
+class RoomTimeout(Base):
+    __tablename__ = "room_timeouts"
+
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False)
+    identity = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=False)
+    until = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "identity", name="uq_roomtimeout_room_identity"),
+    )
+
+    room = relationship("RoomDB", backref="timeouts")
 
 class Wallet(Base):
     __tablename__ = "wallets"
@@ -109,3 +139,22 @@ class KickRequest(BaseModel):
 
     class Config:
         allow_population_by_field_name = True
+
+class BanRequest(BaseModel):
+    room: str
+    identity: str | None = Field(default=None, alias="username")
+    username: str | None = None
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class TimeoutRequest(BaseModel):
+    room: str
+    minutes: int
+    identity: str | None = Field(default=None, alias="username")
+    username: str | None = None
+
+    model_config = {
+        "validate_by_name": True
+    }

@@ -1357,11 +1357,26 @@ function handleRoomPopupAction(action, username) {
     callModApiKick(username);
     break;
 
-    case "ban": alert("Ban user (backend komt later)"); break;
-    case "timeout5": alert("Timeout 5m"); break;
-    case "timeout60": alert("Timeout 1 uur"); break;
-    case "timeout24": alert("Timeout 24 uur"); break;
+    case "ban":
+    callModApiBan(username);
+    break;
 
+    case "timeout5":
+    callModApiTimeout(username, 5);
+    break;
+    case "timeout60":
+    callModApiTimeout(username, 60);
+    break;
+    case "timeout24":
+    callModApiTimeout(username, 1440); // 24 uur
+    break;
+    case "unban":
+    callModApiUnban(username);
+    break;
+
+
+
+    
     case "mod": alert("Make moderator"); break;
     case "unmod": alert("Remove moderator"); break;
   }
@@ -1369,6 +1384,53 @@ function handleRoomPopupAction(action, username) {
   closeRoomUserPopup();
 }
 
+async function callModApiTimeout(username, minutes) {
+  const token = localStorage.getItem("token");
+  const identity = window.__popupIdentity;
+  const roomName = window.lkRoom?.name;
+
+  try {
+    const res = await fetch("https://api.johka.be/api/room/mod/timeout", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        room: roomName,
+        minutes,
+        identity,
+        username
+      })
+    });
+
+    const txt = await res.text();
+    alert(txt);
+  } catch (err) {
+    alert("Timeout fout: " + err.message);
+  }
+}
+
+async function callModApiUnban(username) {
+  const token = localStorage.getItem("token");
+  const identity = window.__popupIdentity;
+  const roomName = window.lkRoom?.name;
+
+  await fetch("https://api.johka.be/api/room/mod/unban", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      room: roomName,
+      identity,
+      username
+    })
+  });
+
+  alert(`${username} is geunbanned.`);
+}
 
 async function callModApiKick(username) {
   const token = localStorage.getItem("token");
@@ -1405,6 +1467,41 @@ async function callModApiKick(username) {
 }
 
 
+async function callModApiBan(username) {
+  const token = localStorage.getItem("token");
+  if (!token) return alert("Niet ingelogd.");
+
+  // Identity moet uit popup komen
+  const identity = window.__popupIdentity;
+  const roomName = window.lkRoom?.name;
+
+  if (!identity) return alert("Geen identity gevonden (bug).");
+  if (!roomName) return alert("Geen LiveKit room name gevonden.");
+
+  try {
+    const res = await fetch("https://api.johka.be/api/room/mod/ban", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        room:   roomName,
+        identity: identity,     // DE LIVEKIT-IDENTITY!
+        username: username      // voor logs & UI
+      })
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t);
+    }
+
+    alert(`${username} is geblokkeerd (ban).`);
+  } catch (err) {
+    alert("Ban fout: " + err.message);
+  }
+}
 
 
 // Klik buiten popup = sluiten
