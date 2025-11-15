@@ -41,13 +41,18 @@ window.roomCurrentSubject = currentRoomSubject;
 
 function getRoomUserRole(entry) {
   const localIdentity = window.lkRoom?.localParticipant?.identity;
+  const moderators =
+    window.__roomModerators instanceof Set ? window.__roomModerators : new Set();
+  const targetIdentity = entry?.identity;
+  const entryIsModerator = Boolean(entry?.isModerator);
 
   return {
-    isSelf: entry.identity === localIdentity,
-    amIOwner: localIdentity === window.__roomOwnerIdentity,
-    amIMod: window.__roomModerators.has(localIdentity),
-    isModerator: window.__roomModerators.has(entry.identity),
-    isStreamer: localIdentity === window.__roomOwnerIdentity
+    isSelf: targetIdentity ? targetIdentity === localIdentity : false,
+    amIOwner: Boolean(localIdentity && localIdentity === window.__roomOwnerIdentity),
+    amIMod: Boolean(localIdentity && moderators.has(localIdentity)),
+    isModerator:
+      entryIsModerator || (targetIdentity ? moderators.has(targetIdentity) : false),
+    isStreamer: Boolean(localIdentity && localIdentity === window.__roomOwnerIdentity),
   };
 }
 
