@@ -961,7 +961,7 @@ def build_livekit_server_token(room_name: Optional[str] = None) -> str:
 
 @router.post("/mod/kick")
 async def kick_user(
-    payload: KickRequest,
+    payload: KickRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db),
 ):
@@ -1019,7 +1019,7 @@ async def kick_user(
 
 @router.post("/mod/ban")
 async def ban_user(
-    payload: BanRequest,
+    payload: BanRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db)
 ):
@@ -1065,7 +1065,7 @@ async def ban_user(
 
 @router.post("/mod/timeout")
 async def timeout_user(
-    payload: TimeoutRequest,
+    payload: TimeoutRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db)
 ):
@@ -1105,7 +1105,7 @@ async def timeout_user(
 
 @router.post("/mod/unban")
 async def unban_user(
-    payload: BanRequest,
+    payload: BanRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db)
 ):
@@ -1137,7 +1137,7 @@ async def unban_user(
 
 @router.post("/mod/addmod")
 async def add_moderator(
-    payload: ModRequest,
+    payload: ModRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db)
 ):
@@ -1173,7 +1173,7 @@ async def add_moderator(
 
 @router.post("/mod/removemod")
 async def remove_moderator(
-    payload: ModRequest,
+    payload: ModRequest = Body(...),
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db)
 ):
