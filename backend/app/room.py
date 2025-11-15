@@ -19,6 +19,7 @@ from uuid import uuid4
 import psycopg2
 from dotenv import load_dotenv
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
+import httpx
 from jose import JWTError, jwt
 from PIL import Image
 from pydantic import BaseModel
@@ -43,24 +44,45 @@ def _get_env(name: str, default: Optional[str] = None, *, required: bool = False
     return value
 
 async def do_livekit_kick(room_name: str, identity: str):
-    token = build_livekit_server_token()
+    """Verwijder een gebruiker uit LiveKit met dezelfde logica als /mod/kick."""
 
-    url = LIVEKIT_FALLBACK_URL + "/twirp/livekit.RoomService/RemoveParticipant"
+    token = build_livekit_server_token(room_name)
 
-    body = {
-        "room": room_name,
-        "identity": identity
-    }
+    url = LIVEKIT_HTTP_BASE + "/twirp/livekit.RoomService/RemoveParticipant"
 
-    async with httpx.AsyncClient() as client:
-        return await client.post(
+    body = {"room": room_name, "identity": identity}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.post(
             url,
             headers={
                 "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            json=body
+            json=body,
         )
+
+    if res.status_code != 200:
+        raise HTTPException(status_code=502, detail=res.text)
+
+    maybe_json = None
+    content_type = res.headers.get("content-type", "")
+    if "json" in content_type.lower() and res.content:
+        try:
+            maybe_json = res.json()
+        except ValueError:
+            maybe_json = None
+
+    if isinstance(maybe_json, dict) and "error" in maybe_json:
+        detail = (
+            maybe_json["error"].get("msg")
+            if isinstance(maybe_json["error"], dict)
+            else None
+        )
+        raise HTTPException(status_code=502, detail=detail or "LiveKit gaf een fout terug")
+
+    return res
+        
 
 
 JWT_SECRET = _get_env("JWT_SECRET", "MyUltraSecretKey")
@@ -889,7 +911,6 @@ def build_livekit_server_token(room_name: Optional[str] = None) -> str:
     token.with_grants(grants)
     return token.to_jwt()
 
-import httpx
 
 @router.post("/mod/kick")
 async def kick_user(
@@ -911,33 +932,7 @@ async def kick_user(
             detail="Je kan enkel kijkers uit je eigen room verwijderen",
         )
 
-    token = build_livekit_server_token(payload.room)
-    url = LIVEKIT_HTTP_BASE + "/twirp/livekit.RoomService/RemoveParticipant"
-    body = {"room": payload.room, "identity": payload.identity}
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        res = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-
-        )
-
-    if res.status_code != 200:
-        raise HTTPException(status_code=502, detail=res.text)
-
-    maybe_json = None
-    content_type = res.headers.get("content-type", "")
-    if "json" in content_type.lower() and res.content:
-        try:
-            maybe_json = res.json()
-        except ValueError:
-            maybe_json = None
-    if isinstance(maybe_json, dict) and "error" in maybe_json:
-        detail = maybe_json["error"].get("msg") if isinstance(maybe_json["error"], dict) else None
-        raise HTTPException(status_code=502, detail=detail or "LiveKit gaf een fout terug")
+    await do_livekit_kick(payload.room, payload.identity)
 
     log_room_action(s, owner_room.id, user.id, "kick", info=payload.identity)
 

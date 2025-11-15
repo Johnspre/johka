@@ -21,6 +21,21 @@ def app_module(tmp_path, monkeypatch):
     monkeypatch.setenv("ADMIN_KEY", "test-admin")
     monkeypatch.setenv("LIVEKIT_API_SECRET", "test-livekit-secret")
     monkeypatch.setenv("REDIS_PASSWORD", "test-redis-password")
+    monkeypatch.setenv("JWT_SECRET", "test-jwt")
+
+    for module_name in (
+        "database",
+        "models",
+        "backend.app.database",
+        "backend.app.models",
+    ):
+        sys.modules.pop(module_name, None)
+
+    import backend.app.database as database_module
+    sys.modules["database"] = database_module
+
+    import backend.app.models as models_module
+    sys.modules["models"] = models_module
 
     from backend.app import main
 
