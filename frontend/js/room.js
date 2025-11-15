@@ -36,6 +36,31 @@ let storedUsername = null;
 let defaultRoomSubject = "My room";
 let currentRoomSubject = defaultRoomSubject;
 
+function normalizeModeratorIdentity(entry) {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    return trimmed || null;
+  }
+  if (typeof entry === "object") {
+    if (typeof entry.identity === "string" && entry.identity.trim()) {
+      return entry.identity.trim();
+    }
+    if (typeof entry.username === "string" && entry.username.trim()) {
+      return entry.username.trim();
+    }
+  }
+  return null;
+}
+
+function buildModeratorSet(rawList) {
+  if (!Array.isArray(rawList)) return new Set();
+  const normalized = rawList
+    .map(normalizeModeratorIdentity)
+    .filter(Boolean);
+  return new Set(normalized);
+}
+
 window.roomDefaultSubject = defaultRoomSubject;
 window.roomCurrentSubject = currentRoomSubject;
 
@@ -409,9 +434,7 @@ async function init() {
 window.__roomOwnerIdentity = data.owner_identity || data.username || storedUsername;
 
 // moderators uit backend (later ook uitbreiden)
-window.__roomModerators = new Set(
-  Array.isArray(data.moderators) ? data.moderators : []
-);
+window.__roomModerators = buildModeratorSet(data.moderators);
 
 // Debug info
 console.log("👑 Streamer identity:", window.__roomOwnerIdentity);
@@ -1496,7 +1519,17 @@ async function callModApiAddMod(username) {
       throw new Error(text || "Onbekende fout");
     }
 
-    alert(await res.text());
+    const message = await res.text();
+
+    const normalizedIdentity = normalizeModeratorIdentity(identity) || identity;
+    if (normalizedIdentity) {
+      if (!(window.__roomModerators instanceof Set)) {
+        window.__roomModerators = new Set();
+      }
+      window.__roomModerators.add(normalizedIdentity);
+    }
+
+    alert(message);
   } catch (err) {
     alert("Moderator toevoegen mislukt: " + err.message);
   }
@@ -1530,7 +1563,14 @@ async function callModApiRemoveMod(username) {
       throw new Error(text || "Onbekende fout");
     }
 
-    alert(await res.text());
+    const message = await res.text();
+
+    const normalizedIdentity = normalizeModeratorIdentity(identity) || identity;
+    if (normalizedIdentity && window.__roomModerators instanceof Set) {
+      window.__roomModerators.delete(normalizedIdentity);
+    }
+
+    alert(message);
   } catch (err) {
     alert("Moderator verwijderen mislukt: " + err.message);
   }
