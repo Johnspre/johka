@@ -1321,30 +1321,22 @@ function closeRoomUserPopup() {
   roomUserPopupEl.classList.add("hidden");
 }
 
-const localIdentity = window.lkRoom?.localParticipant?.identity;
-
-// dit is de eigenaar van de room (streamer)
-const ownerIdentity = window.__roomOwnerIdentity;
-
-// participant is een moderator?
-const isTargetMod = window.__roomModerators.has(entry.identity);
-
-// ben ik de moderator?
-const amIMod = window.__roomModerators.has(localIdentity);
-
-// wie is de streamer?
-const isStreamer = (localIdentity === ownerIdentity);
-
-// role object vullen
-const role = {
-  isSelf: entry.identity === localIdentity,
-  isStreamer: isStreamer,
-  isModerator: isTargetMod,
-  amIMod: amIMod,
-  amIOwner: localIdentity === ownerIdentity
-};
-
 function openRoomUserPopup(username, x, y, role = {}, identity) {
+  const localIdentity = window.lkRoom?.localParticipant?.identity || null;
+  const ownerIdentity = window.__roomOwnerIdentity || null;
+  const moderators = window.__roomModerators instanceof Set ? window.__roomModerators : new Set();
+
+  const computedRole = {
+    isSelf: identity ? identity === localIdentity : false,
+    isStreamer: localIdentity ? localIdentity === ownerIdentity : false,
+    isModerator: identity ? moderators.has(identity) : false,
+    amIMod: localIdentity ? moderators.has(localIdentity) : false,
+    amIOwner: localIdentity ? localIdentity === ownerIdentity : false,
+  };
+
+const fullRole = { ...computedRole, ...role };
+
+
   window.__popupIdentity = identity;
 
   const {
@@ -1353,7 +1345,7 @@ function openRoomUserPopup(username, x, y, role = {}, identity) {
     isModerator = false,  // target is moderator
     amIMod = false,       // jij bent moderator
     amIOwner = false      // jij bent streamer
-  } = role;
+  } = fullRole;
 
   let html = `
     <div class="user-popup-header">${username}</div>
