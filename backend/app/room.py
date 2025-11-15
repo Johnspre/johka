@@ -27,8 +27,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import RoomDB, UserDB, Wallet, WalletHistory
-from models import KickRequest
+from models import KickRequest, BanRequest, TimeoutRequest
 from livekit.api import AccessToken, VideoGrants
+from datetime import datetime, timedelta
+from models import RoomTimeout
+from models import RoomBan
 
 load_dotenv()
 
@@ -77,6 +80,7 @@ PSYCOPG_URL = _get_env("PSYCOPG_URL") or (
 LIVEKIT_API_KEY = _get_env("LIVEKIT_API_KEY", "johka_live_key")
 LIVEKIT_API_SECRET = _get_env("LIVEKIT_API_SECRET", required=True)
 LIVEKIT_URL = _get_env("LIVEKIT_URL", "wss://live.johka.be")
+LIVEKIT_FALLBACK_URL = os.getenv("LIVEKIT_FALLBACK_URL", "https://live.johka.be")
 
 def _resolve_livekit_http_base() -> str:
     """Bepaal de HTTP-basis-URL voor LiveKit-beheer."""
