@@ -1465,46 +1465,78 @@ function handleRoomPopupAction(action, username) {
   closeRoomUserPopup();
 }
 
+function getCurrentRoomName() {
+  if (window.lkRoom?.name) return window.lkRoom.name;
+  if (window.roomSlug) return `${window.roomSlug}-room`;
+  return null;
+}
+
 async function callModApiAddMod(username) {
   const token = localStorage.getItem("token");
   const identity = window.__popupIdentity;
-  const roomName = window.lkRoom?.name;
+  const roomName = getCurrentRoomName();
 
-  const res = await fetch("https://api.johka.be/api/room/mod/addmod", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + token,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      room: roomName,
-      identity,
-      username
-    })
-  });
+  if (!token) return alert("Niet ingelogd.");
+  if (!identity) return alert("Geen identity gevonden (bug).");
+  if (!roomName) return alert("Geen LiveKit room name gevonden.");
 
-  alert(await res.text());
+  try {
+    const res = await fetch("https://api.johka.be/api/room/mod/addmod", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        room: roomName,
+        identity,
+        username
+      })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Onbekende fout");
+    }
+
+    alert(await res.text());
+  } catch (err) {
+    alert("Moderator toevoegen mislukt: " + err.message);
+  }
 }
 
 async function callModApiRemoveMod(username) {
   const token = localStorage.getItem("token");
   const identity = window.__popupIdentity;
-  const roomName = window.lkRoom?.name;
+  const roomName = getCurrentRoomName();
 
-  const res = await fetch("https://api.johka.be/api/room/mod/removemod", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + token,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      room: roomName,
-      identity,
-      username
-    })
-  });
+  if (!token) return alert("Niet ingelogd.");
+  if (!identity) return alert("Geen identity gevonden (bug).");
+  if (!roomName) return alert("Geen LiveKit room name gevonden.");
 
-  alert(await res.text());
+  try {
+    const res = await fetch("https://api.johka.be/api/room/mod/removemod", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        room: roomName,
+        identity,
+        username
+      })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Onbekende fout");
+    }
+
+    alert(await res.text());
+  } catch (err) {
+    alert("Moderator verwijderen mislukt: " + err.message);
+  }
 }
 
 async function callModApiTimeout(username, minutes) {
