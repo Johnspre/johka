@@ -33,6 +33,7 @@ from livekit.api import AccessToken, VideoGrants
 from datetime import datetime, timedelta
 from models import RoomTimeout
 from models import RoomBan
+from models import RoomModerator
 
 load_dotenv()
 
@@ -964,22 +965,53 @@ async def kick_user(
     user: UserDB = Depends(get_current_user),
     s: Session = Depends(db),
 ):
+    # 1. input check
     if not payload.room or not payload.identity:
         raise HTTPException(status_code=400, detail="room en identity zijn verplicht")
 
-    owner_room = s.query(RoomDB).filter(RoomDB.user_id == user.id).first()
+    # 2. Find owner's room
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id)
+        .first()
+    )
+
     if not owner_room:
-        raise HTTPException(status_code=403, detail="Geen room gevonden voor gebruiker")
-    
+        raise HTTPException(403, "Geen room gevonden voor gebruiker")
+
+    # 3. Validate room name
     expected_room_name = f"{owner_room.slug}-room"
     if payload.room != expected_room_name:
         raise HTTPException(
-            status_code=403,
-            detail="Je kan enkel kijkers uit je eigen room verwijderen",
+            403,
+            "Je kan enkel kijkers uit je eigen room verwijderen",
         )
 
+    # 4. Streamer mag NIET gekickt worden
+    # target is de STREAMER als identity == owner username
+    # (jij gebruikt identity als LiveKit identity, die == username)
+    if payload.identity == owner_room.name:
+        raise HTTPException(403, "Je kan de streamer niet kicken.")
+
+    # 5. Check of target een moderator is
+    is_target_mod = (
+        s.query(RoomModerator)
+        .filter(RoomModerator.room_id == owner_room.id,
+                RoomModerator.identity == payload.identity)
+        .first()
+    )
+
+    # Check of requester streamer is (streamer == room owner)
+    requester_is_owner = (user.id == owner_room.user_id)
+
+    # Een moderator mag GEEN andere moderator kicken
+    if is_target_mod and not requester_is_owner:
+        raise HTTPException(403, "Je kan geen moderator kicken.")
+
+    # 6. Als iedereen ok is → LiveKit Kick
     await do_livekit_kick(payload.room, payload.identity)
 
+    # 7. Logging
     log_room_action(s, owner_room.id, user.id, "kick", info=payload.identity)
 
     return {"status": "ok"}
@@ -1102,5 +1134,71 @@ async def unban_user(
     s.commit()
 
     return {"status": "ok", "message": f"{payload.username} is geunbanned"}
+
+@router.post("/mod/addmod")
+async def add_moderator(
+    payload: ModRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    slug = payload.room.replace("-room", "")
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id, RoomDB.slug == slug)
+        .first()
+    )
+
+    if not owner_room:
+        raise HTTPException(403, "Je kan enkel moderators toevoegen in je eigen room.")
+
+    # check of al moderator
+    existing = (
+        s.query(RoomModerator)
+        .filter(RoomModerator.room_id == owner_room.id, RoomModerator.identity == payload.identity)
+        .first()
+    )
+    if existing:
+        return {"status": "ok", "message": f"{payload.username} is al moderator."}
+
+    mod = RoomModerator(
+        room_id=owner_room.id,
+        identity=payload.identity,
+        username=payload.username or payload.identity
+    )
+    s.add(mod)
+    s.commit()
+
+    return {"status": "ok", "message": f"{payload.username} is nu moderator."}
+
+
+@router.post("/mod/removemod")
+async def remove_moderator(
+    payload: ModRequest,
+    user: UserDB = Depends(get_current_user),
+    s: Session = Depends(db)
+):
+    slug = payload.room.replace("-room", "")
+    owner_room = (
+        s.query(RoomDB)
+        .filter(RoomDB.user_id == user.id, RoomDB.slug == slug)
+        .first()
+    )
+
+    if not owner_room:
+        raise HTTPException(403, "Geen toegang tot deze room.")
+
+    # het verwijderen
+    deleted = s.query(RoomModerator).filter(
+        RoomModerator.room_id == owner_room.id,
+        RoomModerator.identity == payload.identity
+    ).delete()
+
+    s.commit()
+
+    if deleted:
+        return {"status": "ok", "message": f"{payload.username} is geen moderator meer."}
+    else:
+        return {"status": "ok", "message": f"{payload.username} was geen moderator."}
+
 
 __all__ = ["router"]

@@ -40,14 +40,17 @@ window.roomDefaultSubject = defaultRoomSubject;
 window.roomCurrentSubject = currentRoomSubject;
 
 function getRoomUserRole(entry) {
-  const myName = localStorage.getItem("username");
+  const localIdentity = window.lkRoom?.localParticipant?.identity;
 
   return {
-    isSelf: entry.name === myName,
-    isStreamer: true,            // jij bent de streamer in room.html
-    isModerator: entry.isModerator || false  // later metadata
+    isSelf: entry.identity === localIdentity,
+    amIOwner: localIdentity === window.__roomOwnerIdentity,
+    amIMod: window.__roomModerators.has(localIdentity),
+    isModerator: window.__roomModerators.has(entry.identity),
+    isStreamer: localIdentity === window.__roomOwnerIdentity
   };
 }
+
 
 
 function getParticipantKey(participant) {
@@ -392,6 +395,26 @@ async function init() {
     livekitUrl = data.url || DEFAULT_LIVEKIT_URL;
     applyRoomMetadata(data);
     console.log("🎬 LiveKit token ontvangen:", data);
+
+    //-------------------------------------------------------------
+// ⭐ MODERATOR + STREAMER INFO OPSLAAN (CRUCIAAL!)
+//-------------------------------------------------------------
+
+// Bij room.html ben JIJ altijd de streamer
+window.__roomOwnerIdentity = data.owner_identity || data.username || storedUsername;
+
+// moderators uit backend (later ook uitbreiden)
+window.__roomModerators = new Set(
+  Array.isArray(data.moderators) ? data.moderators : []
+);
+
+// Debug info
+console.log("👑 Streamer identity:", window.__roomOwnerIdentity);
+console.log("🛡️ Moderators:", [...window.__roomModerators]);
+
+
+
+
   } catch (err) {
     addMsg(`❌ Token ophalen mislukt: ${err.message}`);
     return;
@@ -1298,10 +1321,39 @@ function closeRoomUserPopup() {
   roomUserPopupEl.classList.add("hidden");
 }
 
-function openRoomUserPopup(username, x, y, role = {}, identity) {
-  window.__popupIdentity = identity;   // opslaan voor kick
+const localIdentity = window.lkRoom?.localParticipant?.identity;
 
-  const { isSelf = false, isStreamer = true, isModerator = false } = role;
+// dit is de eigenaar van de room (streamer)
+const ownerIdentity = window.__roomOwnerIdentity;
+
+// participant is een moderator?
+const isTargetMod = window.__roomModerators.has(entry.identity);
+
+// ben ik de moderator?
+const amIMod = window.__roomModerators.has(localIdentity);
+
+// wie is de streamer?
+const isStreamer = (localIdentity === ownerIdentity);
+
+// role object vullen
+const role = {
+  isSelf: entry.identity === localIdentity,
+  isStreamer: isStreamer,
+  isModerator: isTargetMod,
+  amIMod: amIMod,
+  amIOwner: localIdentity === ownerIdentity
+};
+
+function openRoomUserPopup(username, x, y, role = {}, identity) {
+  window.__popupIdentity = identity;
+
+  const {
+    isSelf = false,
+    isStreamer = false,   // jij bent streamer
+    isModerator = false,  // target is moderator
+    amIMod = false,       // jij bent moderator
+    amIOwner = false      // jij bent streamer
+  } = role;
 
   let html = `
     <div class="user-popup-header">${username}</div>
@@ -1313,7 +1365,10 @@ function openRoomUserPopup(username, x, y, role = {}, identity) {
     </div>
   `;
 
-  if (isStreamer && !isSelf) {
+  // ============================
+  // STREAMER (owner) UI
+  // ============================
+  if (amIOwner && !isSelf) {
     html += `
       <div class="user-popup-section"><b>Streamer Tools</b></div>
       <button data-act="kick">👢 Kick user</button>
@@ -1321,9 +1376,30 @@ function openRoomUserPopup(username, x, y, role = {}, identity) {
       <button data-act="timeout5">⏱ Timeout 5m</button>
       <button data-act="timeout60">⏱ Timeout 1 uur</button>
       <button data-act="timeout24">⏱ Timeout 24 uur</button>
-      <button data-act="mod">⭐ Make Moderator</button>
-      <button data-act="unmod">❌ Remove Moderator</button>
+      ${
+        isModerator
+          ? `<button data-act="unmod">❌ Remove Moderator</button>`
+          : `<button data-act="mod">⭐ Make Moderator</button>`
+      }
     `;
+  }
+
+  // ============================
+  // MODERATOR UI
+  // ============================
+  if (!amIOwner && amIMod && !isSelf) {
+    html += `<div class="user-popup-section"><b>Moderator Tools</b></div>`;
+
+    // Moderator mag NIET: streamer of mod aanpakken
+    if (!isModerator && identity !== window.__roomOwnerIdentity) {
+      html += `
+        <button data-act="kick">👢 Kick user</button>
+        <button data-act="ban">⛔ Ban user</button>
+        <button data-act="timeout5">⏱ Timeout 5m</button>
+        <button data-act="timeout60">⏱ Timeout 1 uur</button>
+        <button data-act="timeout24">⏱ Timeout 24 uur</button>
+      `;
+    }
   }
 
   html += `
@@ -1375,13 +1451,60 @@ function handleRoomPopupAction(action, username) {
     break;
 
 
+    case "mod":
+    callModApiAddMod(username);
+    break;
+    case "unmod":
+    callModApiRemoveMod(username);
+    break;
 
     
-    case "mod": alert("Make moderator"); break;
-    case "unmod": alert("Remove moderator"); break;
+    
   }
 
   closeRoomUserPopup();
+}
+
+async function callModApiAddMod(username) {
+  const token = localStorage.getItem("token");
+  const identity = window.__popupIdentity;
+  const roomName = window.lkRoom?.name;
+
+  const res = await fetch("https://api.johka.be/api/room/mod/addmod", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      room: roomName,
+      identity,
+      username
+    })
+  });
+
+  alert(await res.text());
+}
+
+async function callModApiRemoveMod(username) {
+  const token = localStorage.getItem("token");
+  const identity = window.__popupIdentity;
+  const roomName = window.lkRoom?.name;
+
+  const res = await fetch("https://api.johka.be/api/room/mod/removemod", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      room: roomName,
+      identity,
+      username
+    })
+  });
+
+  alert(await res.text());
 }
 
 async function callModApiTimeout(username, minutes) {

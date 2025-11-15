@@ -172,3 +172,12 @@ class TimeoutRequest(BaseModel):
     model_config = {
         "validate_by_name": True
     }
+
+class ModRequest(BaseModel):
+    room: str
+    identity: str | None = Field(default=None, alias="username")
+    username: str | None = None
+
+    model_config = {
+        "validate_by_name": True
+    }
