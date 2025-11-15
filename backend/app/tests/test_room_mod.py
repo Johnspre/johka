@@ -5,9 +5,9 @@ import sys
 
 import pytest
 
-os.environ.setdefault("POSTGRES_PASSWORD")
-os.environ.setdefault("LIVEKIT_API_SECRET")
-os.environ.setdefault("REDIS_PASSWORD")
+os.environ.setdefault("POSTGRES_PASSWORD", "test-password")
+os.environ.setdefault("LIVEKIT_API_SECRET", "test-livekit-secret")
+os.environ.setdefault("REDIS_PASSWORD", "test-redis-password")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:

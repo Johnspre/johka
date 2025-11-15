@@ -70,6 +70,20 @@ class RoomTimeout(Base):
 
     room = relationship("RoomDB", backref="timeouts")
 
+class RoomModerator(Base):
+    __tablename__ = "room_moderators"
+
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False)
+    identity = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=False)
+    added_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "identity", name="uq_roommods_room_identity"),
+    )
+
+
 class Wallet(Base):
     __tablename__ = "wallets"
 

@@ -117,6 +117,50 @@ def _resolve_livekit_http_base() -> str:
         return "http://" + LIVEKIT_URL[len("ws://") :].rstrip("/")
     return LIVEKIT_URL.rstrip("/")
 
+def enforce_room_access_controls(
+    s: Session,
+    room_id: Optional[int],
+    identity: Optional[str],
+    *,
+    is_owner: bool,
+) -> None:
+    """Verhindert dat gebande of getimede kijkers een nieuwe token krijgen."""
+
+    if not room_id or not identity or is_owner:
+        return
+
+    banned = (
+        s.query(RoomBan)
+        .filter(RoomBan.room_id == room_id, RoomBan.identity == identity)
+        .first()
+    )
+    if banned:
+        raise HTTPException(
+            status_code=403,
+            detail="Je bent geblokkeerd in deze room.",
+        )
+
+    timeout_entry = (
+        s.query(RoomTimeout)
+        .filter(RoomTimeout.room_id == room_id, RoomTimeout.identity == identity)
+        .first()
+    )
+    if timeout_entry:
+        now_dt = datetime.utcnow()
+        if timeout_entry.until and timeout_entry.until > now_dt:
+            remaining_seconds = int((timeout_entry.until - now_dt).total_seconds())
+            remaining_minutes = max((remaining_seconds + 59) // 60, 1)
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Je hebt een timeout. Probeer opnieuw over "
+                    f"{remaining_minutes} minuten."
+                ),
+            )
+
+        s.delete(timeout_entry)
+        s.commit()
+
 
 LIVEKIT_HTTP_BASE = _resolve_livekit_http_base()
 
@@ -373,6 +417,8 @@ async def create_livekit_token(
         else:
             identity = f"gast-{uuid4().hex[:6]}"
             can_chat = False
+
+    enforce_room_access_controls(s, room_id, identity, is_owner=is_owner)      
 
     metadata = None
     if user:
