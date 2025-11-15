@@ -1558,6 +1558,7 @@ async function callModApiAddMod(username) {
         window.__roomModerators = new Set();
       }
       window.__roomModerators.add(normalizedIdentity);
+      updateViewerList();
     }
 
     alert(message);
@@ -1599,6 +1600,7 @@ async function callModApiRemoveMod(username) {
     const normalizedIdentity = normalizeModeratorIdentity(identity) || identity;
     if (normalizedIdentity && window.__roomModerators instanceof Set) {
       window.__roomModerators.delete(normalizedIdentity);
+      updateViewerList();
     }
 
     alert(message);
