@@ -998,3 +998,9 @@ main {
   left: 0;
   pointer-events: auto;
 }
+.mod-badge {
+  color: #e53935;
+  font-weight: bold;
+  margin-right: 4px;
+  font-size: 15px;
+}

@@ -194,30 +194,44 @@ function updateViewerList() {
       const icon = getIcon(entry);
       const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
       const li = document.createElement("li");
-      li.innerHTML = `
+      const isMod = window.__roomModerators?.has(entry.identity);
+      const modBadge = isMod ? `<span class="mod-badge">🛡️</span>` : "";
+      const modStyle = isMod ? `style="color:#e53935;font-weight:bold;"` : "";
+
+li.innerHTML = `
   <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
-  <span class="username" data-name="${label}">${label}</span>
+  ${modBadge}
+  <span class="username" data-name="${label}" ${modStyle}>${label}</span>
 `;
 
+
 const nameSpan = li.querySelector(".username");
-nameSpan.addEventListener("click", (event) => {
-  const raw = event.target.dataset.name;
-  const clean = raw.replace(" (jij)", "");
+      if (nameSpan) {
+        if (entry.key) nameSpan.dataset.rosterKey = entry.key;
+        if (entry.identity) nameSpan.dataset.identity = entry.identity;
 
-  const key = [...rosterByKey.values()].find(e => e.name === clean)?.key;
-  const entry = rosterByKey.get(key);
-  const role = entry ? getRoomUserRole(entry) : {};
+        nameSpan.addEventListener("click", (event) => {
+          const span = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+          if (!span || !span.dataset) return;
 
-openRoomUserPopup(
-  clean,
-  event.clientX + 10,
-  event.clientY + 10,
-  role,
-  entry.identity
-);
+          const raw = span.dataset.name || "";
+          const clean = raw.replace(" (jij)", "");
+          const rosterKey = span.dataset.rosterKey;
+          const cachedEntry = rosterKey ? rosterByKey.get(rosterKey) : null;
+          const identity = cachedEntry?.identity || span.dataset.identity || null;
+          const roleEntry = cachedEntry || (identity ? { identity } : null);
+          const role = roleEntry ? getRoomUserRole(roleEntry) : {};
 
+          openRoomUserPopup(
+            clean,
+            event.clientX + 10,
+            event.clientY + 10,
+            role,
+            identity
+          );
+        });
+      }
 
-});
 
       userList.appendChild(li);
     });
@@ -322,7 +336,7 @@ function showLiveIndicator(active = false) {
 function addMsg(txt, cls = "") {
   const div = document.createElement("div");
   div.className = `msg ${cls}`;
-  div.textContent = txt;
+  div.innerHTML = txt;
   el("chat")?.appendChild(div);
   const c = el("chat");
   if (c) c.scrollTop = c.scrollHeight;
@@ -678,7 +692,23 @@ async function sendChat() {
 
 function handleDataMessage(msg, from) {
   if (msg.type === "chat") {
-    addMsg(`${from}: ${msg.text}`);
+
+    // 🔥 Kijk of afzender moderator is
+    const isMod = window.__roomModerators?.has(from);
+
+    // 🔥 Kleur bepalen
+    let color = isMod ? "#e53935" : "#000";   // rood voor mods
+
+    // 🔥 Als streamer: blauwe kleur (optioneel)
+    if (from === window.__roomOwnerIdentity) {
+      color = "#1976d2"; // mooi blauw
+    }
+
+    // 🔥 Bericht renderen
+    addMsg(
+      `<span style="color:${color}; font-weight:bold;">${from}</span>: ${msg.text}`
+    );
+
   } else if (msg.type === "tip") {
     tipTotal += Number(msg.amount) || 0;
     const tb = el("tipTotalBar");
@@ -686,6 +716,7 @@ function handleDataMessage(msg, from) {
     addMsg(`💸 ${from} tipte ${msg.amount} tokens!`, "tip");
   }
 }
+
 
 // ========== TIPS ==========
 async function sendTip(e) {
