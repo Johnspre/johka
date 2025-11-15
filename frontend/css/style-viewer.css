@@ -381,6 +381,19 @@ main.viewer-layout {
   background: #f3f3f3;
 }
 
+.chat-sender {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-sender.moderator {
+  color: var(--live);
+}
+
+.chat-text {
+  color: var(--text);
+}
+
 .chat-message.system {
   background: #f8f8f8;
   color: var(--muted);
@@ -832,6 +845,18 @@ footer {
   border-bottom: 1px solid #f0f0f0;
   font-size: 14px;
 }
+
+.username.moderator {
+  color: var(--live);
+  font-weight: 600;
+}
+
+.mod-badge {
+  color: var(--live);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
 #userList li:last-child {
   border-bottom: none;
 }

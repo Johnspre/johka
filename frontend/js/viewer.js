@@ -233,6 +233,30 @@ function logMessage(text, type = "system") {
   messageLog.scrollTop = messageLog.scrollHeight;
 }
 
+function appendChatMessage(sender, text, role = {}) {
+  if (!messageLog) return;
+  const item = document.createElement("div");
+  item.className = "chat-message remote";
+
+  const senderSpan = document.createElement("span");
+  senderSpan.className = "chat-sender";
+  if (role.isModerator) {
+    senderSpan.classList.add("moderator");
+  }
+  senderSpan.textContent = sender;
+
+  const textSpan = document.createElement("span");
+  textSpan.className = "chat-text";
+  textSpan.textContent = text;
+
+  item.appendChild(senderSpan);
+  item.appendChild(document.createTextNode(": "));
+  item.appendChild(textSpan);
+
+  messageLog.appendChild(item);
+  messageLog.scrollTop = messageLog.scrollHeight;
+}
+
 function setChatEnabled(enabled) {
  const canInteract = enabled && chatAllowed;
   if (chatInput) chatInput.disabled = !canInteract;
@@ -481,7 +505,8 @@ function handleIncomingData(payload, participant) {
     const decoded = JSON.parse(decoder.decode(payload));
     if (decoded.type === "chat" && decoded.text) {
       const sender = decoded.sender || participant?.identity || "onbekend";
-      logMessage(`${sender}: ${decoded.text}`, "remote");
+      const role = getParticipantRole(participant);
+      appendChatMessage(sender, decoded.text, role);
     } else if (decoded.type === "tip") {
       const sender = decoded.sender || participant?.identity || "onbekend";
       const amount = decoded.amount ?? "?";
@@ -918,6 +943,16 @@ function loadEmbeddedCreatorPage() {
 // === Gebruikerslijst via LiveKit (voor Users-tab) ===
 const rosterByKey = new Map();
 
+function safeParseJSON(payload) {
+  if (!payload) return {};
+  try {
+    return JSON.parse(payload);
+  } catch (err) {
+    console.warn("Kon JSON niet parsen:", err);
+    return {};
+  }
+}
+
 function getParticipantKey(participant) {
   if (!participant) return null;
   if (participant.sid) return participant.sid;
@@ -927,18 +962,15 @@ function getParticipantKey(participant) {
   }
   return participant.__viewerRosterKey;
 }
-  function trackParticipant(participant) {
+function trackParticipant(participant) {
   const key = getParticipantKey(participant);
   if (!participant || !key) return;
 
-  let meta = {};
-  try {
-    meta = JSON.parse(participant.metadata || "{}");
-    const isModerator = Boolean(meta.is_mod);
-
-  } catch (err) {
-    console.warn("Kon participant metadata niet parsen:", err);
-  }
+  const meta = safeParseJSON(participant.metadata || "{}");
+  const identity =
+    typeof participant.identity === "string" && participant.identity.trim()
+      ? participant.identity.trim()
+      : null;
 
   const gender =
     typeof meta.gender === "string" && meta.gender.trim()
@@ -961,12 +993,32 @@ function getParticipantKey(participant) {
     gender,
     isAnonymous: Boolean(meta.isAnonymous),
     isLocal: Boolean(participant.isLocal ?? participant === window.lkRoom?.localParticipant),
-    isModerator: Boolean(meta.is_mod)
+    isModerator: Boolean(meta.is_mod),
+    identity,
   };
   rosterByKey.set(key, entry);
   return entry;
 }
 
+function getRosterEntryForParticipant(participant) {
+  const key = getParticipantKey(participant);
+  if (!key) return null;
+  return rosterByKey.get(key) || null;
+}
+
+function getParticipantRole(participant) {
+  const rosterEntry = participant ? getRosterEntryForParticipant(participant) : null;
+  if (rosterEntry) {
+    return {
+      isModerator: Boolean(rosterEntry.isModerator),
+    };
+  }
+
+  const meta = safeParseJSON(participant?.metadata || "{}");
+  return {
+    isModerator: Boolean(meta.is_mod),
+  };
+}
 
 function updateViewerList() {
   const list = document.getElementById("userList");
@@ -1000,28 +1052,52 @@ function updateViewerList() {
 
     const label = entry.isLocal ? `${entry.name} (jij)` : entry.name;
     const li = document.createElement("li");
-    li.innerHTML = `
-  <img src="${icon}" width="22" height="22" style="margin-right:6px; vertical-align:middle;">
-  <span class="username" data-name="${label}">${label}</span>
-`;
-  
-const nameSpan = li.querySelector(".username");
-nameSpan.addEventListener("click", (event) => {
-  const rawName = event.target.dataset.name || "";
-  const cleanName = rawName.replace(" (jij)", "");
+    const img = document.createElement("img");
+    img.src = icon;
+    img.width = 22;
+    img.height = 22;
+    img.style.marginRight = "6px";
+    img.style.verticalAlign = "middle";
 
-  const key = [...rosterByKey.values()].find(e => e.name === cleanName)?.key;
-  const entry = rosterByKey.get(key);
+    const badge = document.createElement("span");
+    if (entry.isModerator) {
+      badge.className = "mod-badge";
+      badge.textContent = "🛡️";
+    }
 
-  const role = entry ? getViewerRole(entry) : {};
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "username";
+    if (entry.isModerator) {
+      nameSpan.classList.add("moderator");
+    }
+    nameSpan.dataset.name = label;
+    if (entry.identity) {
+      nameSpan.dataset.identity = entry.identity;
+    }
+    nameSpan.textContent = label;
 
-  openViewerUserPopup(
-    cleanName,
-    event.clientX + 8,
-    event.clientY + 8,
-    role
-  );
-});
+    nameSpan.addEventListener("click", (event) => {
+      const rawName = event.currentTarget?.dataset?.name || "";
+      const cleanName = rawName.replace(" (jij)", "");
+
+      const key = [...rosterByKey.values()].find((e) => e.name === cleanName)?.key;
+      const rosterEntry = key ? rosterByKey.get(key) : null;
+
+      const role = rosterEntry ? getViewerRole(rosterEntry) : {};
+
+      openViewerUserPopup(
+        cleanName,
+        event.clientX + 8,
+        event.clientY + 8,
+        role,
+      );
+    });
+
+    li.appendChild(img);
+    if (entry.isModerator) {
+      li.appendChild(badge);
+    }
+    li.appendChild(nameSpan);
 
 
     list.appendChild(li);
